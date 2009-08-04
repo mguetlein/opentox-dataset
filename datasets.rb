@@ -41,10 +41,6 @@ configure :development, :production do
 	puts @db
 end
 
-# configure services
-COMPOUNDS_SERVICE_URI = "http://webservices.in-silico.ch/compounds/"
-FEATURES_SERVICE_URI = "http://webservices.in-silico.ch/features/"
-
 ## Authentification
 helpers do
 
@@ -88,27 +84,67 @@ get '/:id' do
 	end
 end
 
+get '/:id/compounds' do
+	dataset = Dataset.get(params[:id])
+	compounds = []
+	features = {}
+	dataset.associations.each do |a|
+		compounds << a.compound_uri
+		if features[a.compound_uri]
+			features[a.compound_uri] << a.feature_uri
+		else
+			features[a.compound_uri] = [a.feature_uri]
+		end
+	end
+	compounds.uniq!
+
+	builder do |xml|
+		xml.instruct!
+		xml.dataset do
+			xml.uri url_for("/", :full) + dataset.id.to_s
+			xml.name dataset.name
+			xml.compounds do
+				compounds.each do |p|
+					xml.compound do
+						xml.uri p
+						xml.features do
+							features[p].each do |c|
+								xml.feature c
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+end
+
 put '/:id' do
-	begin
+	#protected!
+	#begin
 		dataset = Dataset.get params[:id]
-		compound_uri = RestClient.post COMPOUNDS_SERVICE_URI, :name => params[:compound_name]
-		feature_uri = RestClient.post FEATURES_SERVICE_URI, :name => params[:feature_name], :value => params[:feature_value]
+		#compound_uri = RestClient.post COMPOUNDS_SERVICE_URI, :name => params[:compound_name]
+		#feature_uri = RestClient.post FEATURES_SERVICE_URI, :name => params[:feature_name], :value => params[:feature_value]
+		compound_uri =  params[:compound_uri]
+		puts params.to_yaml
+		feature_uri = params[:feature_uri] 
 		Association.create(:compound_uri => compound_uri.to_s, :feature_uri => feature_uri.to_s, :dataset_id => dataset.id)
 		url_for("/", :full) + dataset.id.to_s
-	rescue
-		status 500
-		"Failed to update dataset #{params[:id]}."
-	end
+	#rescue
+		#status 500
+		#"Failed to update dataset #{params[:id]}."
+	#end
 end
 
 post '/' do
-	protected!
-	begin
-		dataset = Dataset.create :name => params[:dataset_name]
-		url_for("/", :full) + dataset.id.to_s
-	rescue
+	#protected!
+	dataset = Dataset.find_or_create :name => params[:name]
+	if dataset.id.nil?
 		status 500
 		"Failed to create new dataset."
+	else
+		url_for("/", :full) + dataset.id.to_s
 	end
 end
 

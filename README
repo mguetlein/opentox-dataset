@@ -1,0 +1,20 @@
+OpenTox Datasets
+=================
+
+* An OpenTox REST Webservice
+
+* Stores associations between compounds and features in datasets
+
+* PUT and POST requests are protected by an api key
+
+* Implements a subset of the OpenTox dataset API (http://opentox.org/wiki/opentox/Dataset).
+
+* Requirements:
+
+	- Sinatra (http://www.sinatrarb.com/),
+	- sinatra-url-for (http://github.com/emk/sinatra-url-for/)
+	- RestClient (http://rest-client.heroku.com/)
+	- SQLite3 (www.sqlite.org/)
+	- Datamapper, dm-more (http://datamapper.org/)
+	- Builder (builder.rubyforge.org/)
+	- Rack::Test (http://github.com/brynary/rack-test/) for the tests
