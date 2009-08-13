@@ -1,5 +1,5 @@
 ENV['RACK_ENV'] = 'test'
-require 'datasets'
+require 'application'
 require 'test/unit'
 require 'rack/test'
 
@@ -18,29 +18,25 @@ class DatasetsTest < Test::Unit::TestCase
 
 	def test_create_dataset
 		authorize "api", API_KEY
-		post '/', :dataset_name => "Test dataset"
+		post '/', :name => "Test dataset"
 		assert last_response.ok?
 		assert_equal "http://example.org/1", last_response.body.chomp
 	end
 
 	def test_create_dataset_and_insert_data
 		authorize "api", API_KEY
-		post '/', :dataset_name => "Test dataset"
-		puts last_response.body
-		put '/1', :feature_name => "New feature", :feature_value => "inactive", :compound_name => 'Benzene'
-		puts last_response.body
-		put '/1', :feature_name => "New feature", :feature_value => "active", :compound_name => 'Dioxin'
+		post '/', :name => "Test dataset"
+		post '/1', :compound_uri => "test_compound_uri", :feature_uri => "test_feature_uri"
 		get '/1'
-		puts last_response.body.chomp
 		assert last_response.ok?
+    assert last_response.body.include?('Test dataset')
+    assert last_response.body.include?('test_compound_uri')
+    assert last_response.body.include?('test_feature_uri')
 	end
 
 	def test_unauthorized_create
-		post '/', :dataset_name => "Test dataset", :feature_name => "Test feature", :file => File.new('tests/example.tab')
+		post '/', :name => "Test dataset"
 		assert !last_response.ok?
-	end
-
-	def test_post_to_existing_dataset
 	end
 
 end
