@@ -2,50 +2,46 @@ OpenTox Datasets
 =================
 
 * An OpenTox REST Webservice
-
 * Stores associations between compounds and features in datasets
-
-* PUT and POST requests are protected by an api key
-
 * Implements a subset of the OpenTox dataset API (http://opentox.org/wiki/opentox/Dataset).
 
 REST API
 
-Description               Method  URI                                     Parameters      Result                Status codes
+Description               Method  URI                         Parameters      Result                Status codes
 
-Get a list of all         GET     /                                                       List of URIs          200, 500
+Get a list of all         GET     /                                           List of URIs          200, 500
 datasets
 
-Get a XML representation  GET     /{id}                                                   XML representation    200, 404, 500
-of a dataset                                                                              of a dataset
+Get a XML representation  GET     /{id}                                       XML representation    200, 404, 500
+of a dataset                                                                  of a dataset
 
-Get the dataset name      GET     /{id}/name                                              Dataset name          200, 404, 500
+Get the dataset name      GET     /{id}/name                                  Dataset name          200, 404, 500
 
-Get all compound URIs     GET     /{id}/compounds                                         List of compound      200, 404, 500
-from a dataset                                                                            URIs
+Get all compound URIs     GET     /{id}/compounds                             List of compound      200, 404, 500
+from a dataset                                                                URIs
 
-Get all feature URIs      GET     /{id}/features                                          List of features      200, 404, 500
+Get all feature URIs      GET     /{id}/features                              List of features      200, 404, 500
 
-Get all features with     GET     /{id}/features/compounds                                XML with features     200, 404, 500
-corresponding compounds                                                                   and compounds
+Get all features with     GET     /{id}/features/compounds                    XML with features     200, 404, 500
+corresponding compounds                                                       and compounds
 
-Get all compounds and     GET     /{id}/compounds/features                                XML with compounds    200, 404, 500
-their features                                                                            and featues
+Get all compounds and     GET     /{id}/compounds/features                    XML with compounds    200, 404, 500
+their features                                                                and featues
 
-Get all features for a    GET     /{id}/compound/{compound_uri}/features                  List of feature URIs  200, 404, 500
-compound URI
+Get all features for a    GET     /{id}/compound/         										List of feature URIs  200, 404, 500
+compound URI											{compound_uri}/features
 
-Get all features for a    GET     /{id}/feature/{feature_uri}/compounds                   List of compound URIs 200, 404, 500
-feature URI
+Get all features for a    GET     /{id}/feature/              								List of compound URIs 200, 404, 500
+feature URI												{feature_uri}/compounds
 
-Create a new dataset      POST    /                                       name            Dataset URI           200, 500
+Create a new dataset      POST    /                           name            Dataset URI           200, 500
 
-Add a new association to  POST    /{id}                                   compound_uri,   Dataset URI           200, 404, 500
-a dataset                                                                 feature_uri
+Add a new association to  POST    /{id}                       compound_uri,   Dataset URI           200, 404, 500
+a dataset                                                     feature_uri
 
-Delete a dataset          DELETE  /{id}                                                                         200, 404, 500
+Delete a dataset          DELETE  /{id}                                                             200, 404, 500
 
-Clear the content of a    DELETE  /{id}/associations                                                            200, 404, 500
+Clear the content of a    DELETE  /{id}/associations                                                200, 404, 500
 dataset
 
 INSTALLATION

@@ -187,13 +187,13 @@ get '/:id/feature/*/compounds' do
 end
 
 post '/' do
-	protected!
+	#protected!
 	dataset = Dataset.find_or_create :name => params[:name]
 	url_for("/", :full) + dataset.id.to_s
 end
 
 post '/:id' do
-	protected!
+	#protected!
 	begin
 		dataset = Dataset.get params[:id]
 	rescue
@@ -208,7 +208,7 @@ end
 
 delete '/:id' do
 	# dangerous, because other datasets might refer to it
-	protected!
+	#protected!
 	begin
 		dataset = Dataset.get params[:id]
 	rescue
@@ -221,7 +221,7 @@ delete '/:id' do
 end
 
 delete '/:id/associations' do
-	protected!
+	#protected!
 	begin
 		dataset = Dataset.get params[:id]
 	rescue
