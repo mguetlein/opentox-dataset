@@ -4,6 +4,7 @@ OpenTox Datasets
 * An OpenTox REST Webservice
 * Stores associations between compounds and features in datasets
 * Implements a subset of the OpenTox dataset API (http://opentox.org/wiki/opentox/Dataset).
+* Current version runs at http://webservices.in-silico.ch/dataset/v0
 
 REST API
 

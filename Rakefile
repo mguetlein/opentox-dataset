@@ -3,7 +3,7 @@ require 'rake'
 
 desc "Install required gems"
 task :install do
-	`sudo gem install sinatra emk-sinatra-url-for builder dm-core dm-more`
+	puts `sudo gem install sinatra emk-sinatra-url-for builder datamapper json_pure do_sqlite3`
 end
 
 desc "Run tests"

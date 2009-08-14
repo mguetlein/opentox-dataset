@@ -1,5 +1,6 @@
 ## SETUP
-[ 'rubygems', 'sinatra', 'sinatra/url_for', 'datamapper', 'dm-more', 'builder', 'api_key' ].each do |lib|
+#[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder', 'api_key' ].each do |lib|
+[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder' ].each do |lib|
 	require lib
 end
 
@@ -59,7 +60,7 @@ end
 
 ## REST API
 
-get '/' do
+get '/?' do
 	Dataset.all.collect{ |d| url_for("/", :full) + d.id.to_s }.join("\n")
 end
 
@@ -186,7 +187,7 @@ get '/:id/feature/*/compounds' do
 	Association.all(:dataset_id => params[:id], :feature_uri => feature_uri).collect { |a| a.compound_uri }.uniq.join("\n")
 end
 
-post '/' do
+post '/?' do
 	#protected!
 	dataset = Dataset.find_or_create :name => params[:name]
 	url_for("/", :full) + dataset.id.to_s
