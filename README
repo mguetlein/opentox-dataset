@@ -37,13 +37,19 @@ feature URI												{feature_uri}/compounds
 
 Create a new dataset      POST    /                           name            Dataset URI           200, 500
 
+Create a new dataset      POST    /                           name, file      Dataset URI           200, 500
+from a csv file
+
 Add a new association to  POST    /{id}                       compound_uri,   Dataset URI           200, 404, 500
 a dataset                                                     feature_uri
 
 Delete a dataset          DELETE  /{id}                                                             200, 404, 500
 
-Clear the content of a    DELETE  /{id}/associations                                                200, 404, 500
-dataset
+EXAMPLE
+
+Create a dataset from a csv file:
+
+	curl -X POST -F name="Hamster carcinogenicity" -F file=@hamster_carcinogenicity.csv  http://webservices.in-silico.ch/dataset/v0/
 
 INSTALLATION
 

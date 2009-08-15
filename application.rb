@@ -1,61 +1,34 @@
 ## SETUP
-#[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder', 'api_key' ].each do |lib|
-[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder' ].each do |lib|
+[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder', 'csv', 'opentox-ruby-api-wrapper' ].each do |lib|
 	require lib
 end
-
-# reload
 
 ## MODELS
 
 class Dataset
 	include DataMapper::Resource
 	property :id, Serial
-	property :name, String, :unique => true
+	property :name, String#, :unique => true
+	property :finished, Boolean, :default => true
 	has n, :associations
 end
 
 class Association
 	include DataMapper::Resource
 	property :id, Serial
-	property :compound_uri, URI
-	property :feature_uri, URI
+	property :compound_uri, String, :size => 255
+	property :feature_uri, String, :size => 255
 	belongs_to :dataset
 end
 
-# automatically create the tables
-configure :test do 
-	DataMapper.setup(:default, 'sqlite3::memory:')
+sqlite = "#{File.expand_path(File.dirname(__FILE__))}/#{Sinatra::Base.environment}.sqlite3"
+DataMapper.setup(:default, "sqlite3:///#{sqlite}")
+DataMapper::Logger.new(STDOUT, 0)
+
+unless FileTest.exists?("#{sqlite}")
 	[Dataset, Association].each do |model|
 		model.auto_migrate!
 	end
-end
-
-@db = "datasets.sqlite3"
-configure :development, :production do
-	DataMapper::setup(:default, "sqlite3://#{Dir.pwd}/#{@db}")
-	unless FileTest.exists?("#{@db}")
-		[Dataset, Association].each do |model|
-			model.auto_migrate!
-		end
-	end
-	puts @db
-end
-
-## Authentification
-helpers do
-
-  def protected!
-    response['WWW-Authenticate'] = %(Basic realm="Testing HTTP Auth") and \
-    throw(:halt, [401, "Not authorized\n"]) and \
-    return unless authorized?
-  end
-
-  def authorized?
-    @auth ||=  Rack::Auth::Basic::Request.new(request.env)
-    @auth.provided? && @auth.basic? && @auth.credentials && @auth.credentials == ['api', API_KEY]
-  end
-
 end
 
 ## REST API
@@ -65,12 +38,11 @@ get '/?' do
 end
 
 get '/:id' do
-	begin
-		dataset = Dataset.get(params[:id])
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
+	#halt 202, "Still uploading data to dataset #{params[:id]} , please try again later."  unless dataset.finished
+	halt 202, dataset.to_yaml  unless dataset.finished
+	dataset.to_yaml
+=begin
 	builder do |xml|
 		xml.instruct!
 		xml.dataset do
@@ -84,43 +56,28 @@ get '/:id' do
 			end
 		end
 	end
+=end
 end
 
 get '/:id/name' do
-	begin
-		Dataset.get(params[:id]).name
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
+	dataset.name
 end
 
 get '/:id/compounds' do
-	begin
-		Dataset.get(params[:id]).associations.collect{ |a| a.compound_uri }.uniq.join("\n")
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
+	dataset.associations.collect{ |a| a.compound_uri }.uniq.join("\n")
 end
 
 get '/:id/features' do
-	begin
-		Dataset.get(params[:id]).associations.collect{ |a| a.feature_uri }.uniq.join("\n")
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
+	dataset.associations.collect{ |a| a.feature_uri }.uniq.join("\n")
 end
 
 get '/:id/features/compounds' do
 
-	begin
-		dataset = Dataset.get(params[:id])
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
+
 	features = {}
 	dataset.associations.each do |a|
 		if features[a.feature_uri]
@@ -129,7 +86,9 @@ get '/:id/features/compounds' do
 			features[a.feature_uri] = [a.compound_uri]
 		end
 	end
+	features.to_yaml
 
+=begin
 	builder do |xml|
 		xml.instruct!
 		xml.dataset do
@@ -143,16 +102,12 @@ get '/:id/features/compounds' do
 			end
 		end
 	end
+=end
 end
 
 get '/:id/compounds/features' do
 
-	begin
-		dataset = Dataset.get(params[:id])
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
 	compounds = {}
 	dataset.associations.each do |a|
 		if compounds[a.compound_uri]
@@ -161,7 +116,8 @@ get '/:id/compounds/features' do
 			compounds[a.compound_uri] = [a.feature_uri]
 		end
 	end
-
+	compounds.to_yaml
+=begin
 	builder do |xml|
 		xml.instruct!
 		xml.dataset do
@@ -175,6 +131,7 @@ get '/:id/compounds/features' do
 			end
 		end
 	end
+=end
 end
 
 get '/:id/compound/*/features' do 
@@ -189,18 +146,27 @@ end
 
 post '/?' do
 	#protected!
-	dataset = Dataset.find_or_create :name => params[:name]
+	dataset = Dataset.create :name => params[:name]
+
+	if params[:file]
+		dataset.update_attributes(:finished => false)
+		Spork.spork do
+			#CSV.foreach(params[:file][:tempfile].path) do |record|
+			File.open(params[:file][:tempfile].path).each_line do |line|
+				record = line.chomp.split(/,\s*/)
+				compound = OpenTox::Compound.new :smiles => record[0]
+				feature = OpenTox::Feature.new :name => params[:name], :values => { 'classification' => record[1] }
+				Association.create(:compound_uri => compound.uri, :feature_uri => feature.uri, :dataset_id => dataset.id)
+			end
+			dataset.update_attributes(:finished => true)
+		end
+	end
 	url_for("/", :full) + dataset.id.to_s
 end
 
 post '/:id' do
 	#protected!
-	begin
-		dataset = Dataset.get params[:id]
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
 	compound_uri =  params[:compound_uri]
 	feature_uri = params[:feature_uri] 
 	Association.create(:compound_uri => compound_uri.to_s, :feature_uri => feature_uri.to_s, :dataset_id => dataset.id)
@@ -210,25 +176,21 @@ end
 delete '/:id' do
 	# dangerous, because other datasets might refer to it
 	#protected!
-	begin
-		dataset = Dataset.get params[:id]
-	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
-	end
+	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
 	dataset.associations.each { |a| a.destroy }
 	dataset.destroy
 	"Successfully deleted dataset #{params[:id]}."
 end
 
+=begin
 delete '/:id/associations' do
 	#protected!
 	begin
 		dataset = Dataset.get params[:id]
 	rescue
-		status 404
-		"Dataset #{params[:id]} not found."
+		halt 404, "Dataset #{params[:id]} not found."
 	end
 	dataset.associations.each { |a| a.destroy }
 	"Associations for dataset #{params[:id]} successfully deleted."
 end
+=end
