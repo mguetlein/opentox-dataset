@@ -51,7 +51,7 @@ Create a dataset from a csv file:
 
   curl -X POST -F name="Hamster carcinogenicity" -F file=@hamster_carcinogenicity.csv  http://webservices.in-silico.ch/dataset/v0/
 
-  returns a dataset_uri
+  returns a {dataset_uri}
 
 Show a list of all compounds:
 
@@ -67,6 +67,6 @@ Show all compounds and their features:
 
 INSTALLATION
 
-Run 'rake install' to install the required gems and openbabel
+Run 'rake install' to install the required gems
 
 Copyright (c) 2009 Christoph Helma. See LICENSE for details.
