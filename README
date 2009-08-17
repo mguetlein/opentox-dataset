@@ -13,7 +13,7 @@ Description               Method  URI                         Parameters      Re
 Get a list of all         GET     /                                           List of URIs          200, 500
 datasets
 
-Get a XML representation  GET     /{id}                                       XML representation    200, 404, 500
+Get a YAML representation GET     /{id}                                       YAML representation    200, 404, 500
 of a dataset                                                                  of a dataset
 
 Get the dataset name      GET     /{id}/name                                  Dataset name          200, 404, 500
@@ -23,17 +23,17 @@ from a dataset                                                                UR
 
 Get all feature URIs      GET     /{id}/features                              List of features      200, 404, 500
 
-Get all features with     GET     /{id}/features/compounds                    XML with features     200, 404, 500
+Get all features with     GET     /{id}/features/compounds                    YAML with features     200, 404, 500
 corresponding compounds                                                       and compounds
 
-Get all compounds and     GET     /{id}/compounds/features                    XML with compounds    200, 404, 500
+Get all compounds and     GET     /{id}/compounds/features                    YAML with compounds    200, 404, 500
 their features                                                                and featues
 
-Get all features for a    GET     /{id}/compound/         										List of feature URIs  200, 404, 500
-compound URI											{compound_uri}/features
+Get all features for a    GET     /{id}/compound/                             List of feature URIs  200, 404, 500
+compound URI                      {compound_uri}/features
 
-Get all features for a    GET     /{id}/feature/              								List of compound URIs 200, 404, 500
-feature URI												{feature_uri}/compounds
+Get all features for a    GET     /{id}/feature/                              List of compound URIs 200, 404, 500
+feature URI                       {feature_uri}/compounds
 
 Create a new dataset      POST    /                           name            Dataset URI           200, 500
 
@@ -45,11 +45,25 @@ a dataset                                                     feature_uri
 
 Delete a dataset          DELETE  /{id}                                                             200, 404, 500
 
-EXAMPLE
+EXAMPLES
 
 Create a dataset from a csv file:
 
-	curl -X POST -F name="Hamster carcinogenicity" -F file=@hamster_carcinogenicity.csv  http://webservices.in-silico.ch/dataset/v0/
+  curl -X POST -F name="Hamster carcinogenicity" -F file=@hamster_carcinogenicity.csv  http://webservices.in-silico.ch/dataset/v0/
+
+  returns a dataset_uri
+
+Show a list of all compounds:
+
+  curl {dataset_uri}/compounds
+
+Show a list of all features:
+
+  curl {dataset_uri}/features
+
+Show all compounds and their features:
+
+  curl {dataset_uri}/compounds/features
 
 INSTALLATION
 
