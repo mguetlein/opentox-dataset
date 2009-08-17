@@ -176,8 +176,9 @@ post '/?' do
 	url_for("/", :full) + dataset.id.to_s
 end
 
-put '/:id' do
+put '/:id/?' do
 	#protected!
+	pass if params[:finished]
 	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
 	compound_uri =  params[:compound_uri]
 	feature_uri = params[:feature_uri] 
@@ -185,12 +186,12 @@ put '/:id' do
 	url_for("/", :full) + dataset.id.to_s
 end
 
-put '/:id/finished' do
+put '/:id/?' do
 	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.update_attributes(:finished => true)
+	dataset.update_attributes(:finished => true) if params[:finished] == 'true'
 end
 
-delete '/:id' do
+delete '/:id/?' do
 	# dangerous, because other datasets might refer to it
 	#protected!
 	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
