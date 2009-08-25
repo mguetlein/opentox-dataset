@@ -1,201 +1,139 @@
-## SETUP
-[ 'rubygems', 'sinatra', 'sinatra/url_for', 'dm-core', 'dm-more', 'builder', 'opentox-ruby-api-wrapper' ].each do |lib|
-	require lib
+# SETUP
+[ 'rubygems', 'redis', 'opentox-ruby-api-wrapper' ].each do |lib|
+  require lib
 end
 
-## MODELS
-
-class Dataset
-	include DataMapper::Resource
-	property :id, Serial
-	property :name, String
-	property :finished, Boolean, :default => false
-	has n, :associations
+case ENV['RACK_ENV']
+when 'production'
+  @@redis = Redis.new :db => 0
+when 'development'
+  @@redis = Redis.new :db => 1
+when 'test'
+  @@redis = Redis.new :db => 2
+  @@redis.flush_db
 end
 
-class Association
-	include DataMapper::Resource
-	property :id, Serial
-	property :compound_uri, String, :size => 255
-	property :feature_uri, String, :size => 255
-	belongs_to :dataset
-end
+set :default_content, :yaml
 
-sqlite = "#{File.expand_path(File.dirname(__FILE__))}/#{Sinatra::Base.environment}.sqlite3"
-DataMapper.setup(:default, "sqlite3:///#{sqlite}")
-DataMapper::Logger.new(STDOUT, 0)
+helpers do
 
-unless FileTest.exists?("#{sqlite}")
-	[Dataset, Association].each do |model|
-		model.auto_migrate!
+	def not_found?
+		halt 404, "Dataset \"#{params[:name]}\" not found." unless @@redis.set_member? "datasets", sanitize_key(params[:name])
 	end
+
+	def sanitize_key(k)
+		k.gsub(/\s|\n/,'_')
+	end
+
+	def name(uri)
+		URI.decode File.basename(uri)
+	end
+
+	def uri(name)
+		uri = url_for("/", :full) + URI.escape(URI.unescape(name)) # avoid escaping escaped names
+	end
+
+	def	add_feature(name, record)
+		compound = record[0]
+		feature = record[1] 
+		@@redis.set_add name + '::compounds', compound
+		@@redis.set_add name + '::features', name + '::' + feature
+		@@redis.set_add compound, name + '::' + feature
+		@@redis.set_add feature, compound
+	end
+
+	def delete_dataset(name)
+		# stale features/compounds under compound and name::feature ??
+		@@redis.delete name + '::compounds'
+		@@redis.delete name + '::features'
+		@@redis.set_delete "datasets", name
+	end
+
 end
 
 ## REST API
 
 get '/?' do
-	Dataset.all.collect{ |d| url_for("/", :full) + d.id.to_s }.join("\n")
+	@@redis.set_members("datasets").collect{|d| uri(d)}.join("\n")
 end
 
-get '/:id' do
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	halt 202, dataset.to_yaml  unless dataset.finished
-	dataset.to_yaml
-=begin
-	builder do |xml|
-		xml.instruct!
-		xml.dataset do
-			xml.uri url_for("/", :full) + dataset.id.to_s
-			xml.name dataset.name
-			dataset.associations.each do |a|
-				xml.association do
-					xml.compound_uri a.compound_uri
-					xml.feature_uri a.feature_uri
-				end
-			end
-		end
-	end
-=end
+get '/:name' do
+  not_found?
+  @dataset = {:uri => uri(params[:name]), :name => params[:name]}
+  respond_to do |format|
+    format.yaml { @dataset.to_yaml }
+    format.xml {  builder :dataset }
+  end
 end
 
-get '/:id/name' do
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.name
+get '/:name/name' do
+  not_found?
+  URI.decode(params[:name])
 end
 
-get '/:id/compounds' do
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.associations.collect{ |a| a.compound_uri }.uniq.join("\n")
+get '/:name/compounds' do
+  not_found?
+  @@redis.set_members(URI.encode(params[:name]) + "::compounds").join("\n")
 end
 
-get '/:id/features' do
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.associations.collect{ |a| a.feature_uri }.uniq.join("\n")
+get '/:name/features' do
+  not_found?
+  @@redis.set_members(URI.encode(params[:name]) + "::features").join("\n")
 end
 
-get '/:id/features/compounds' do
-
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-
-	features = {}
-	dataset.associations.each do |a|
-		if features[a.feature_uri]
-			features[a.feature_uri] << a.compound_uri
-		else
-			features[a.feature_uri] = [a.compound_uri]
-		end
-	end
-	features.to_yaml
-
-=begin
-	builder do |xml|
-		xml.instruct!
-		xml.dataset do
-			features.each do |feature,compounds|
-				xml.feature do
-					xml.uri feature
-					compounds.each do |c|
-						xml.compound_uri c
-					end
-				end
-			end
-		end
-	end
-=end
+get '/:name/:type/*/*/intersection' do
+  # CHECK/TEST
+  @@redis.set_intersect(params[:splat][0], params[:splat][1], URI.encode(params[:name]) + '/' + params[:type]).join("\n")
 end
 
-get '/:id/compounds/features' do
-
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	compounds = {}
-	dataset.associations.each do |a|
-		if compounds[a.compound_uri]
-			compounds[a.compound_uri] << a.feature_uri
-		else
-			compounds[a.compound_uri] = [a.feature_uri]
-		end
-	end
-	compounds.to_yaml
-=begin
-	builder do |xml|
-		xml.instruct!
-		xml.dataset do
-			compounds.each do |compound,features|
-				xml.compound do
-					xml.uri compound
-					features.each do |f|
-						xml.feature_uri f
-					end
-				end
-			end
-		end
-	end
-=end
+get '/:name/:type/*/*/union' do
+  # CHECK/TEST
+  @@redis.set_union(params[:splat][0], params[:splat][1], URI.encode(params[:name]) + '/' + params[:type]).join("\n")
 end
 
-get '/:id/compound/*/features' do 
-	compound_uri = params[:splat].first
-	Association.all(:dataset_id => params[:id], :compound_uri => compound_uri).collect { |a| a.feature_uri }.uniq.join("\n")
+get '/:name/*/features' do 
+  compound = URI.encode(params[:splat].first, /[^#{URI::PATTERN::UNRESERVED}]/)
+  @@redis.set_intersect(params[:name] + '::features', compound ).join("\n")
+  @@redis.set_intersect(params[:name] + '::features', compound ).join("\n")
 end
 
-get '/:id/feature/*/compounds' do 
-	feature_uri = params[:splat].first
-	Association.all(:dataset_id => params[:id], :feature_uri => feature_uri).collect { |a| a.compound_uri }.uniq.join("\n")
+get '/:name/*/compounds' do 
+  feature = params[:splat].first
+  @@redis.set_intersect(feature, params[:name] + '::compounds').join("\n")
 end
 
 post '/?' do
-	#protected!
-	dataset = Dataset.create :name => params[:name]
+  #protected!
+	name = sanitize_key params[:name]
+  halt 403, "Dataset \"#{name}\" exists - please choose another name." if @@redis.set_member?("datasets", name)
 
-	if params[:file]
-		Spork.spork do
-			File.open(params[:file][:tempfile].path).each_line do |line|
-				record = line.chomp.split(/,\s*/)
-				compound = OpenTox::Compound.new :smiles => record[0]
-				feature = OpenTox::Feature.new :name => params[:name], :values => { 'classification' => record[1] }
-				Association.create(:compound_uri => compound.uri, :feature_uri => feature.uri, :dataset_id => dataset.id)
-			end
-			dataset.update_attributes(:finished => true)
+  @@redis.set_add "datasets", name
+
+  if params[:file]
+		File.open(params[:file][:tempfile].path).each_line do |line|
+			record = line.chomp.split(/,\s*/)
+			add_feature(name, record)
 		end
-
-=begin
-	elsif params[:data]
-		puts params[:data]
-		dataset = Dataset.create :name => params[:name]
-		#Spork.spork do
-			YAML.load(params[:data]).each do |record|
-				compound = OpenTox::Compound.new :uri => record[0]
-				feature = OpenTox::Feature.new :uri => record[1] 
-				puts compound + "\t" , feature
-				Association.create(:compound_uri => compound.uri, :feature_uri => feature.uri, :dataset_id => dataset.id)
-			end
-			dataset.update_attributes(:finished => true)
-		#end
-=end
-	end
-	url_for("/", :full) + dataset.id.to_s
+  end
+	uri name 
 end
 
-put '/:id/?' do
-	#protected!
-	pass if params[:finished]
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	compound_uri =  params[:compound_uri]
-	feature_uri = params[:feature_uri] 
-	Association.create(:compound_uri => compound_uri.to_s, :feature_uri => feature_uri.to_s, :dataset_id => dataset.id)
-	url_for("/", :full) + dataset.id.to_s
+put '/:name/?' do
+  #protected!
+  pass if params[:finished]
+  not_found?
+	name = sanitize_key params[:name]
+  compound =  params[:compound]
+  feature = sanitize_key params[:feature] 
+	add_feature(name, [compound,feature])
+  name + " sucessfully updated."
 end
 
-put '/:id/?' do
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.update_attributes(:finished => true) if params[:finished] == 'true'
-end
-
-delete '/:id/?' do
-	# dangerous, because other datasets might refer to it
-	#protected!
-	halt 404, "Dataset #{params[:id]} not found." unless dataset = Dataset.get(params[:id])
-	dataset.associations.each { |a| a.destroy }
-	dataset.destroy
-	"Successfully deleted dataset #{params[:id]}."
+delete '/:name/?' do
+  # dangerous, because other datasets might refer to it
+  #protected!
+  not_found?
+  name = sanitize_key params[:name]
+	delete_dataset(name)
+  "Successfully deleted dataset \"#{name}\"."
 end
