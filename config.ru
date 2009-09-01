@@ -14,7 +14,7 @@ if ENV['RACK_ENV'] == 'production'
 		mail.to 'helma@in-silico.ch'
 		mail.subject '[ERROR] %s'
 	end 
-else
+elsif ENV['RACK_ENV'] == 'development'
   use Rack::Reloader 
   use Rack::ShowExceptions
 end
