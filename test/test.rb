@@ -135,6 +135,8 @@ class DatasetsTest < Test::Unit::TestCase
 		uri = last_response.body
 		get uri
 		assert last_response.ok?
+		get uri + '/name'
+		name = last_response.body
 
 		data.each do |smiles,features|
 			compound_uri = OpenTox::Compound.new(:smiles => smiles).uri
@@ -150,7 +152,7 @@ class DatasetsTest < Test::Unit::TestCase
 			data.each do |s,f|
 				unless s == smiles
 					neighbor_uri = OpenTox::Compound.new(:smiles => s).uri
-					get uri + "/tanimoto/compound/#{compound_uri}/compound/#{neighbor_uri}"
+					get "/tanimoto/#{name}/compound/#{compound_uri}/#{name}/compound/#{neighbor_uri}"
 					assert last_response.ok?
 					sim = last_response.body
 					features_a = data[smiles].keys
@@ -160,7 +162,7 @@ class DatasetsTest < Test::Unit::TestCase
 					mysim = intersect.size.to_f/union.size.to_f
 					assert_equal sim, mysim.to_s
 					puts "tanimoto::#{smiles}::#{s}::#{last_response.body}"
-					get uri + "/weighted_tanimoto/compound/#{compound_uri}/compound/#{neighbor_uri}"
+					get "/weighted_tanimoto/#{name}/compound/#{compound_uri}/#{name}/compound/#{neighbor_uri}"
 					assert last_response.ok?
 					puts "weighted_tanimoto::#{smiles}::#{s}::#{last_response.body}"
 				end
