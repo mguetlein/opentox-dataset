@@ -1,12 +1,14 @@
 require 'application'
 require 'test/unit'
 require 'rack/test'
+require 'ruby-prof'
 
 set :environment, :test
 @@redis.flush_db
 
 class DatasetsTest < Test::Unit::TestCase
   include Rack::Test::Methods
+	#include RubyProf::Test
 
   def app
     Sinatra::Application
@@ -20,72 +22,32 @@ class DatasetsTest < Test::Unit::TestCase
 	def test_create_dataset
 		post '/', :name => "Test dataset"
 		assert last_response.ok?
-		uri = last_response.body.chomp
-		assert_equal "http://example.org/Test_dataset", uri
+		uri = last_response.body
+		assert_equal "http://example.org/Test%20dataset", uri
 		get uri
 		assert last_response.ok?
-		delete "/Test_dataset"
-		assert last_response.ok?
-		get "/Test_dataset"
-		assert !last_response.ok?
-	end
-
-	def test_create_dataset_and_insert_data
-		name = "Test dataset"
-		compounds = {
-			'[O-][N+](=O)C/C=C\C(=O)Cc1cc(C#N)ccc1' => 'true',
-			'F[B-](F)(F)F.[Na+]' => 'false',
-			'N#[N+]C1=CC=CC=C1.F[B-](F)(F)F' => 'false'
-		}
-		post '/', :name => name
-		assert last_response.ok?
-		uri = last_response.body.chomp
-		get uri
-		assert last_response.ok?
-    assert last_response.body.include?("Test_dataset")
-
-		compounds.each do |smiles,activity|
-
-			compound_uri = OpenTox::Compound.new(:smiles => smiles).uri
-			feature_uri = OpenTox::Feature.new(:name => name, :values => {:classification => activity}).uri
-			put uri, :compound_uri => compound_uri, :feature_uri => feature_uri
-
-			assert last_response.ok?
-			get uri + '/compounds'
-			assert last_response.ok?
-			assert last_response.body.include?(compound_uri)
-			get uri + '/features'
-			assert last_response.ok?
-			assert last_response.body.include?(activity)
-			assert last_response.body.include?(feature_uri)
-			get uri + '/compound/' + compound_uri + '/features'
-			assert last_response.ok?
-			assert last_response.body.include?(activity)
-			assert_equal feature_uri, last_response.body
-		end
-		get uri + '/compounds'
-		#puts last_response.body
 		delete uri
 		assert last_response.ok?
-		get "/Test_dataset"
+		get uri
 		assert !last_response.ok?
 	end
 
 	def test_create_dataset_from_csv
 		smiles = 'CC(=O)Nc1scc(n1)c1ccc(o1)[N+](=O)[O-]'
-		compound_uri = OpenTox::Compound.new(:smiles => smiles).uri
-		post '/', :name => "Hamster Carcinogenicity", :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"))
+		compound = Compound.new(:smiles => smiles)
+		post '/', :name => "Hamster Carcinogenicity"
 		uri = last_response.body
+		post uri + '/activities', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"))
 		get uri
 		assert last_response.ok?
 		get uri + '/compounds'
 		assert last_response.ok?
-		assert last_response.body.include?(compound_uri)
-		get uri + '/features'
-		assert last_response.ok?
-		assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
-		assert last_response.body.include?("Hamster%20Carcinogenicity/classification/false")
-		get uri + '/compound/' + compound_uri + '/features'
+		assert last_response.body.include?(compound.inchi)
+		#get uri + '/activities'
+		#assert last_response.ok?
+		#assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
+		#assert last_response.body.include?("Hamster%20Carcinogenicity/classification/false")
+		get File.join(uri ,compound.inchi)
 		assert last_response.ok?
     assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
 		delete uri
@@ -94,20 +56,21 @@ class DatasetsTest < Test::Unit::TestCase
 		assert !last_response.ok?
 	end
 
-=begin
 	def test_create_large_dataset_from_csv
-		post '/', :name => "Salmonella Mutagenicity", :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "kazius.csv"))
+		post '/', :name => "Salmonella Mutagenicity"
+		uri = last_response.body
+		post uri + '/activities', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "kazius.csv"))
 		uri = last_response.body
 		get uri
 		assert last_response.ok?
 	end
-=end
 
 	def test_tanimoto_similarity
 		#@feature_set = OpenTox::Algorithms::Fminer.new :dataset_uri => @dataset
 		name = "Similarity test dataset"
 		data = {
-			'[O-][N+](=O)C/C=C\C(=O)Cc1cc(C#N)ccc1' =>
+			'c1ccccc1' =>
+			#'[O-][N+](=O)C/C=C\C(=O)Cc1cc(C#N)ccc1' =>
 			{
 				'A' => 1.0,
 				'B' => 0.9,
@@ -115,7 +78,8 @@ class DatasetsTest < Test::Unit::TestCase
 				'D' => 0.7,
 				'E' => 0.5
 			},
-			'F[B-](F)(F)F.[Na+]' => 
+				'CCCNN' =>
+			#'F[B-](F)(F)F.[Na+]' => 
 			{
 				'F' => 0.9,
 				'B' => 0.9,
@@ -123,7 +87,8 @@ class DatasetsTest < Test::Unit::TestCase
 				'D' => 0.7,
 				'E' => 0.5
 			},
-			'N#[N+]C1=CC=CC=C1.F[B-](F)(F)F' => 
+				'C1CO1' =>
+			#'N#[N+]C1=CC=CC=C1.F[B-](F)(F)F' => 
 			{
 				'A' => 1.0,
 				'B' => 0.9,
@@ -135,24 +100,29 @@ class DatasetsTest < Test::Unit::TestCase
 		uri = last_response.body
 		get uri
 		assert last_response.ok?
-		get uri + '/name'
-		name = last_response.body
+		name = URI.encode(name)
+		feature_data = {}
 
 		data.each do |smiles,features|
-			compound_uri = OpenTox::Compound.new(:smiles => smiles).uri
+			compound = Compound.new(:smiles => smiles).inchi
+			feature_data[compound] = []
 			features.each do |k,v|
-				feature_uri = OpenTox::Feature.new(:name => k, :values => {:p_value => v}).uri
-				put uri, :compound_uri => compound_uri, :feature_uri => feature_uri
-				assert last_response.ok?
+				feature= Feature.new(:name => k, :values => {:p_value => v}).path
+				feature_data[compound] << feature
 			end
 		end
 
+		post uri + '/features', :features => feature_data.to_yaml
+		assert last_response.ok?
+
 		data.each do |smiles,features|
-			compound_uri = OpenTox::Compound.new(:smiles => smiles).uri
+			compound= Compound.new(:smiles => smiles).inchi
 			data.each do |s,f|
 				unless s == smiles
-					neighbor_uri = OpenTox::Compound.new(:smiles => s).uri
-					get "/tanimoto/#{name}/compound/#{compound_uri}/#{name}/compound/#{neighbor_uri}"
+					neighbor= Compound.new(:smiles => s).inchi
+					get "/#{name}/#{compound}/"
+					assert last_response.ok?
+					get "/#{name}/#{compound}/tanimoto/#{name}/#{neighbor}"
 					assert last_response.ok?
 					sim = last_response.body
 					features_a = data[smiles].keys
@@ -162,7 +132,7 @@ class DatasetsTest < Test::Unit::TestCase
 					mysim = intersect.size.to_f/union.size.to_f
 					assert_equal sim, mysim.to_s
 					puts "tanimoto::#{smiles}::#{s}::#{last_response.body}"
-					get "/weighted_tanimoto/#{name}/compound/#{compound_uri}/#{name}/compound/#{neighbor_uri}"
+					get "/#{name}/#{compound}/weighted_tanimoto/#{name}/#{neighbor}"
 					assert last_response.ok?
 					puts "weighted_tanimoto::#{smiles}::#{s}::#{last_response.body}"
 				end
@@ -170,12 +140,5 @@ class DatasetsTest < Test::Unit::TestCase
 		end
 
 	end
-
-=begin
-	def test_unauthorized_create
-		post '/', :name => "Test dataset"
-		assert !last_response.ok?
-	end
-=end
 
 end

@@ -1,5 +1,5 @@
 # SETUP
-[ 'rubygems', 'redis', 'opentox-ruby-api-wrapper' ].each do |lib|
+[ 'rubygems', 'redis', 'opentox-ruby-api-wrapper', 'openbabel' ].each do |lib|
   require lib
 end
 
@@ -15,15 +15,18 @@ end
 
 set :default_content, :yaml
 load File.join(File.dirname(__FILE__), 'dataset.rb')
+load File.join(File.dirname(__FILE__), 'compound.rb')
+load File.join(File.dirname(__FILE__), 'feature.rb')
 
 helpers do
 
-	def not_found?
-		halt 404, "Dataset \"#{params[:name]}\" not found." unless @dataset = Dataset.find(uri(params[:name]))
+	def find
+		uri = uri(params[:splat].first)
+		halt 404, "Dataset \"#{uri}\" not found." unless @set = Dataset.find(uri)
 	end
 
 	def uri(name)
-		uri = url_for("/", :full) + name.gsub(/\s|\n/,'_')
+		uri = url_for("/", :full) + URI.encode(name) #.gsub(/\s|\n/,'_')
 	end
 
 end
@@ -43,6 +46,89 @@ get '/?' do
 	Dataset.find_all.join("\n")
 end
 
+get '/*/tanimoto/*/?' do
+	find
+	@set.tanimoto(uri(params[:splat][1]))
+end
+
+get '/*/weighted_tanimoto/*/?' do
+	find
+	@set.weighted_tanimoto(uri(params[:splat][1]))
+end
+
+# catch the rest
+get '/*/?' do
+	find
+	@set.to_yaml
+end
+
+post '/?' do
+
+	dataset_uri = uri(params[:name])
+	halt 403, "Dataset \"#{dataset_uri}\" exists." if Dataset.find(dataset_uri)
+
+	@set = Dataset.create(dataset_uri)
+	@compounds_set = Dataset.create File.join(dataset_uri, "compounds")
+	#@activities_set = Dataset.create File.join(dataset_uri, "activities")
+	#@features_set = Dataset.create File.join(dataset_uri, "features")
+	@set.add(@compounds_set.uri)
+	#@set.add(@activities_set.uri)
+	#@set.add(@features_set.uri)
+	@set.uri
+
+end
+
+post '/*/activities/?' do
+
+	find
+	@compounds_set = Dataset.find File.join(@set.uri, "compounds")
+	#@activities_set = Dataset.find File.join(@set.uri, "activities")
+	File.open(params[:file][:tempfile].path).each_line do |line|
+		record = line.chomp.split(/,\s*/)
+		inchi = Compound.new(:smiles => record[0]).inchi
+		feature = Feature.new(:name => @set.name, :values => {:classification => record[1]})
+		@compound_activities = Dataset.find_or_create File.join(@set.uri, inchi)
+		#@activity_compounds = Dataset.find_or_create File.join(@set.uri, feature.path)
+		@compounds_set.add(inchi)
+		#@activities_set.add(feature.path)
+		@compound_activities.add(feature.path)
+		#@activity_compounds.add(inchi)
+	end
+	@set.uri
+
+end
+
+post '/*/features/?' do
+
+	find
+	@compounds_set = Dataset.find File.join(@set.uri, "compounds")
+	#@features_set = Dataset.find File.join(@set.uri, "features")
+	YAML.load(params[:features]).each do |inchi,features|
+		@compound_features = Dataset.find_or_create File.join(@set.uri, inchi)
+		features.each do |feature|
+			#@feature_compounds = Dataset.find_or_create File.join(@set.uri, feature)
+			@compounds_set.add(inchi)
+			#@features_set.add(feature)
+			@compound_features.add(feature)
+			#@feature_compounds.add(inchi)
+		end
+  end
+	@set.uri
+
+end
+
+delete '/*/?' do
+	find
+	@set.members.each{|m| Dataset.find(m).delete}
+	@set.delete
+end
+
+put '/*/?' do
+	find
+	@set.add(params[:uri])
+end
+
+=begin
 get '/:name' do
   not_found?
   respond_to do |format|
@@ -142,3 +228,4 @@ delete '/collection/:name/?' do
 	DatasetCollection.find(uri params[:name]).destroy
   "Successfully deleted dataset collection \"#{params[:name]}\"."
 end
+=end
