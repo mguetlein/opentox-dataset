@@ -15,15 +15,15 @@ class DatasetsTest < Test::Unit::TestCase
   end
 
 	def test_index
-		get '/'
+		get '/datasets'
 		assert last_response.ok?
 	end
 
 	def test_create_dataset
-		post '/', :name => "Test dataset"
+		post '/datasets', :name => "Test dataset"
 		assert last_response.ok?
 		uri = last_response.body
-		assert_equal "http://example.org/Test%20dataset", uri
+		assert_equal "http://example.org/dataset/Test%20dataset", uri
 		get uri
 		assert last_response.ok?
 		delete uri
@@ -34,20 +34,17 @@ class DatasetsTest < Test::Unit::TestCase
 
 	def test_create_dataset_from_csv
 		smiles = 'CC(=O)Nc1scc(n1)c1ccc(o1)[N+](=O)[O-]'
-		compound = Compound.new(:smiles => smiles)
-		post '/', :name => "Hamster Carcinogenicity"
+		compound = OpenTox::Compound.new(:smiles => smiles)
+		post '/datasets', :name => "Hamster Carcinogenicity"
 		uri = last_response.body
-		post uri + '/activities', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"))
+		assert last_response.ok?
+		post uri + '/import', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"), "text/csv"), :compound_format => "smiles", :feature_type => "in vivo carcinogenicity"
 		get uri
 		assert last_response.ok?
 		get uri + '/compounds'
 		assert last_response.ok?
 		assert last_response.body.include?(compound.inchi)
-		#get uri + '/activities'
-		#assert last_response.ok?
-		#assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
-		#assert last_response.body.include?("Hamster%20Carcinogenicity/classification/false")
-		get File.join(uri ,compound.inchi)
+		get File.join(uri , 'compound', compound.inchi, URI.encode("in vivo carcinogenicity"))
 		assert last_response.ok?
     assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
 		delete uri
@@ -56,14 +53,16 @@ class DatasetsTest < Test::Unit::TestCase
 		assert !last_response.ok?
 	end
 
+=begin
 	def test_create_large_dataset_from_csv
-		post '/', :name => "Salmonella Mutagenicity"
+		post '/datasets', :name => "Salmonella Mutagenicity"
 		uri = last_response.body
-		post uri + '/activities', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "kazius.csv"))
+		post uri + '/import', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "kazius.csv"), "text/csv"), :compound_format => "smiles", :feature_type => "activity"
 		uri = last_response.body
 		get uri
 		assert last_response.ok?
 	end
+=end
 
 	def test_tanimoto_similarity
 		#@feature_set = OpenTox::Algorithms::Fminer.new :dataset_uri => @dataset
@@ -95,7 +94,7 @@ class DatasetsTest < Test::Unit::TestCase
 				'F' => 0.9,
 			}
 		}
-		post '/', :name => name
+		post '/datasets', :name => name
 		assert last_response.ok?
 		uri = last_response.body
 		get uri
@@ -104,25 +103,28 @@ class DatasetsTest < Test::Unit::TestCase
 		feature_data = {}
 
 		data.each do |smiles,features|
-			compound = Compound.new(:smiles => smiles).inchi
+			compound = OpenTox::Compound.new(:smiles => smiles).uri
 			feature_data[compound] = []
 			features.each do |k,v|
-				feature= Feature.new(:name => k, :values => {:p_value => v}).path
+				feature= OpenTox::Feature.new(:name => k, :values => {:p_value => v}).uri
 				feature_data[compound] << feature
 			end
 		end
 
-		post uri + '/features', :features => feature_data.to_yaml
+		post uri , :features => feature_data.to_yaml, :feature_type => 'test'
 		assert last_response.ok?
 
 		data.each do |smiles,features|
-			compound= Compound.new(:smiles => smiles).inchi
+			compound= OpenTox::Compound.new(:smiles => smiles).inchi
 			data.each do |s,f|
 				unless s == smiles
-					neighbor= Compound.new(:smiles => s).inchi
-					get "/#{name}/#{compound}/"
+					neighbor= OpenTox::Compound.new(:smiles => s).inchi
+					get "/dataset/#{name}/compounds"
 					assert last_response.ok?
-					get "/#{name}/#{compound}/tanimoto/#{name}/#{neighbor}"
+					get "/dataset/#{name}/compound/#{compound}/test"
+					assert last_response.ok?
+					get "/dataset/#{name}/compound/#{compound}/test/tanimoto/#{name}/compound/#{neighbor}/test"
+					puts last_response.body
 					assert last_response.ok?
 					sim = last_response.body
 					features_a = data[smiles].keys
@@ -132,7 +134,7 @@ class DatasetsTest < Test::Unit::TestCase
 					mysim = intersect.size.to_f/union.size.to_f
 					assert_equal sim, mysim.to_s
 					puts "tanimoto::#{smiles}::#{s}::#{last_response.body}"
-					get "/#{name}/#{compound}/weighted_tanimoto/#{name}/#{neighbor}"
+					get "/dataset/#{name}/compound/#{compound}/test/weighted_tanimoto/#{name}/compound/#{neighbor}/test"
 					assert last_response.ok?
 					puts "weighted_tanimoto::#{smiles}::#{s}::#{last_response.body}"
 				end
