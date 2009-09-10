@@ -6,7 +6,7 @@ class Dataset
 	def initialize(uri)
 		@uri = uri
 		begin
-			@name = URI.split(uri)[5]
+			@name = URI.split(uri)[5].sub(/\/dataset\//,'')
 		rescue
 			puts "Bad URI #{uri}"
 		end
@@ -56,6 +56,10 @@ class Dataset
 		@@redis.set_intersect(@uri,set_uri)
 	end
 
+	def features
+		@@redis.set_members(File.join(@uri,'features'))
+	end
+
 	def tanimoto(set_uri)
 		union_size = @@redis.set_union(@uri,set_uri).size
 		intersect_size = @@redis.set_intersect(@uri,set_uri).size
@@ -63,6 +67,8 @@ class Dataset
 	end
 
 	def weighted_tanimoto(set_uri)
+		puts set_uri
+		puts	@@redis.set_members(set_uri).to_yaml
 		union = @@redis.set_union(@uri,set_uri)
 		intersect = @@redis.set_intersect(@uri,set_uri)
 
