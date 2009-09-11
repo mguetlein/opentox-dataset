@@ -27,7 +27,6 @@ class DatasetsTest < Test::Unit::TestCase
 		get uri
 		assert last_response.ok?
 		get uri + '/name'
-		puts last_response.body
 		assert last_response.ok?
 		assert_equal "Test dataset", last_response.body
 		delete uri
@@ -37,26 +36,36 @@ class DatasetsTest < Test::Unit::TestCase
 	end
 
 	def test_create_dataset_from_csv
-		smiles = 'CC(=O)Nc1scc(n1)c1ccc(o1)[N+](=O)[O-]'
-		compound = OpenTox::Compound.new(:smiles => smiles)
-		post '/datasets', :name => "Hamster Carcinogenicity"
-		uri = last_response.body
-		assert last_response.ok?
-		post uri + '/import', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"), "text/csv"), :compound_format => "smiles"
-		get uri
-		assert last_response.ok?
-		get uri + '/compounds'
-		assert last_response.ok?
-		assert last_response.body.include?(compound.inchi)
-		get File.join(uri , 'compound', compound.inchi)
-		assert last_response.ok?
-    assert last_response.body.include?("Hamster%20Carcinogenicity/classification/true")
-		get File.join(uri , 'features')
-    puts last_response.body.to_yaml
-		delete uri
-		assert last_response.ok?
-		get uri
-		assert !last_response.ok?
+		[
+			['F[B-](F)(F)F.[Na+]','false'],
+			['CC(=O)Nc1scc(n1)c1ccc(o1)[N+](=O)[O-]','true'],
+			['NN.OS(=O)(=O)O','true'],
+			['[Cd+2].[O-]S(=O)(=O)[O-]','false']
+		].each do |items|
+			smiles = items[0]
+			activity = items[1]
+
+			compound = OpenTox::Compound.new(:smiles => smiles)
+			post '/datasets', :name => "Hamster Carcinogenicity"
+			uri = last_response.body
+			assert last_response.ok?
+			post uri + '/import', :file => Rack::Test::UploadedFile.new(File.join(File.dirname(__FILE__), "hamster_carcinogenicity.csv"), "text/csv"), :compound_format => "smiles"
+			get uri
+			assert last_response.ok?
+			get uri + '/compounds'
+			assert last_response.ok?
+			assert last_response.body.include?(compound.inchi)
+			get File.join(uri , 'compound', compound.inchi)
+			puts last_response.body
+			assert last_response.ok?
+			assert last_response.body.include?("Hamster%20Carcinogenicity/classification/#{activity}")
+			get File.join(uri , 'features')
+			puts last_response.body.to_yaml
+			delete uri
+			assert last_response.ok?
+			get uri
+			assert !last_response.ok?
+		end
 	end
 
 =begin
@@ -74,8 +83,8 @@ class DatasetsTest < Test::Unit::TestCase
 		#@feature_set = OpenTox::Algorithms::Fminer.new :dataset_uri => @dataset
 		name = "Similarity test dataset"
 		data = {
-			'c1ccccc1' =>
-			#'[O-][N+](=O)C/C=C\C(=O)Cc1cc(C#N)ccc1' =>
+			#'c1ccccc1' =>
+			'[O-][N+](=O)C/C=C\C(=O)Cc1cc(C#N)ccc1' =>
 			{
 				'A' => 1.0,
 				'B' => 0.9,

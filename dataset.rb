@@ -19,6 +19,7 @@ class Dataset
 	end
 
 	def self.find(uri)
+		#puts uri
 		if @@redis.set_member? "datasets", uri
 			Dataset.new(uri)
 		else
@@ -67,8 +68,6 @@ class Dataset
 	end
 
 	def weighted_tanimoto(set_uri)
-		puts set_uri
-		puts	@@redis.set_members(set_uri).to_yaml
 		union = @@redis.set_union(@uri,set_uri)
 		intersect = @@redis.set_intersect(@uri,set_uri)
 

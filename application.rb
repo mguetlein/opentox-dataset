@@ -20,12 +20,22 @@ set :default_content, :yaml
 helpers do
 
 	def find
-		uri = uri(params[:splat].first)
+		# + charges are dropped
+		uri = uri(params[:splat].first.gsub(/(InChI.*) (.*)/,'\1+\2')) # reinsert dropped '+' signs in InChIs
+		#puts uri
 		halt 404, "Dataset \"#{uri}\" not found." unless @set = Dataset.find(uri)
 	end
 
 	def uri(name)
-		uri = url_for("/dataset/", :full) + URI.encode(name)
+=begin
+		if name =~ /InChI/
+			name = URI.encode(name,/[^#{URI::PATTERN::UNRESERVED}]/)
+		else
+			name = URI.encode(name)
+		end
+=end
+		name = URI.encode(name)
+		uri = url_for("/dataset/", :full) + name
 	end
 
 end
