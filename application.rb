@@ -1,112 +1,102 @@
-# SETUP
-[ 'rubygems', 'redis', 'opentox-ruby-api-wrapper' ].each do |lib|
-  require lib
-end
-
-case ENV['RACK_ENV']
-when 'production'
-  @@redis = Redis.new :db => 0
-when 'development'
-  @@redis = Redis.new :db => 1
-when 'test'
-  @@redis = Redis.new :db => 2
-  @@redis.flush_db
-end
-
-load File.join(File.dirname(__FILE__), 'dataset.rb')
+require 'rubygems'
+require 'opentox-ruby-api-wrapper'
+require File.join File.dirname(__FILE__), 'redis', 'dataset.rb'
 
 set :default_content, :yaml
 
 helpers do
 
 	def find
-		# + charges are dropped
-		uri = uri(params[:splat].first.gsub(/(InChI.*) (.*)/,'\1+\2')) # reinsert dropped '+' signs in InChIs
-		#puts uri
+		uri = uri(params[:splat].first)
 		halt 404, "Dataset \"#{uri}\" not found." unless @set = Dataset.find(uri)
 	end
 
 	def uri(name)
-=begin
-		if name =~ /InChI/
-			name = URI.encode(name,/[^#{URI::PATTERN::UNRESERVED}]/)
-		else
-			name = URI.encode(name)
-		end
-=end
 		name = URI.encode(name)
-		uri = url_for("/dataset/", :full) + name
+		uri = url_for("/", :full) + name
 	end
 
 end
 
 ## REST API
 
-load 'compound.rb'
-load 'feature.rb'
-
-get '/datasets/?' do
+get '/?' do
 	Dataset.find_all.join("\n")
 end
 
-get '/algorithm/tanimoto/dataset/*/dataset/*/?' do
+get '/*/name/?' do
 	find
-	@set.tanimoto(uri(params[:splat][1]))
+	URI.decode(URI.split(@set.uri)[5].split(/\//)[1])
 end
 
-
-get '/algorithm/weighted_tanimoto/dataset/*/dataset/*/?' do
-	find
-	@set.weighted_tanimoto(uri(params[:splat][1]))
-end
-
-get '/dataset/*/name/?' do
-	find
-	URI.decode @set.name
-end
-
-get '/dataset/*/features/?' do
+get '/*/features/?' do
 	find
 	@set.features.join("\n")
 end
 
-# catch the rest
-get '/dataset/*/?' do
+get '/*/compounds/?' do
 	find
-	@set.members.join("\n")
+	@set.compounds.join("\n")
+end
+
+get '/*/compound/*/?' do
+	find
+	inchi = params[:splat][1]#.gsub(/(InChI.*) (.*)/,'\1+\2')) # reinsert dropped '+' signs in InChIs
+	@set.compound_features(inchi).join("\n")
+end
+
+# catch the rest
+get '/*/?' do
+	find
+	dataset = {}
+	@set.compounds.each do |c|
+		dataset[c] = @set.compound_features(c)
+	end
+	dataset.to_yaml
 end
 
 # create a dataset
-post '/datasets/?' do
+post '/?' do
 	dataset_uri = uri(params[:name])
 	halt 403, "Dataset \"#{dataset_uri}\" exists." if Dataset.find(dataset_uri)
-	@set = Dataset.create(dataset_uri)
-	@set.add Dataset.create(File.join(dataset_uri, "compounds")).uri
-	@set.add Dataset.create(File.join(dataset_uri, "features")).uri
-	@set.uri
+	Dataset.create(dataset_uri).uri
 end
 
-load 'import.rb'
+put '/*/import/?' do
+	find
+	halt 404, "Compound format #{params[:compound_format]} not (yet) supported" unless params[:compound_format] =~ /smiles|inchi|name/
+	#task = OpenTox::Task.create(@set.uri)
+	data = {}
+	case	params[:file][:type]
+	when "text/csv"
+		File.open(params[:file][:tempfile].path).each_line do |line|
+			record = line.chomp.split(/,\s*/)
+			compound_uri = OpenTox::Compound.new(:smiles => record[0]).uri
+#			begin
+			feature_uri = OpenTox::Feature.new(:name => @set.name, :classification => record[1]).uri
+#			rescue
+#				puts "Error: " + line
+#				puts record.join("\t")
+#				puts @set.name.to_s
+#				#puts [record[0] , @set.name , record[1]].to_yaml
+#			end
+			data[compound_uri] = [] unless data[compound_uri]
+			data[compound_uri] << feature_uri
+		end
+	else
+		halt 404, "File format #{request.content_type} not (yet) supported"
+	end
+	@set.add(data.to_yaml)
+	@set.uri
+end
 
 # import yaml
-post '/dataset/*/?' do
+put '/*/?' do
 	find
-	@compounds_set = Dataset.find File.join(@set.uri, "compounds")
-	@features_set = Dataset.find File.join(@set.uri, "features")
-	YAML.load(params[:features]).each do |compound_uri,feature_uris|
-		# key: /dataset/:dataset/compound/:inchi
-		@compound_features = Dataset.find_or_create File.join(@set.uri,'compound',OpenTox::Compound.new(:uri => compound_uri).inchi)
-		feature_uris.each do |feature_uri|
-			@compounds_set.add compound_uri
-			@features_set.add feature_uri
-			@compound_features.add feature_uri
-		end
-  end
-	@set.uri
+	@set.add(params[:features])
 end
 
-delete '/dataset/*/?' do
+delete '/*/?' do
 	find
-	@set.members.each{|m| Dataset.find(m).delete} if @set.members
 	@set.delete
 end
