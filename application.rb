@@ -1,102 +1,56 @@
 require 'rubygems'
 require 'opentox-ruby-api-wrapper'
-require File.join File.dirname(__FILE__), 'redis', 'dataset.rb'
 
-set :default_content, :yaml
-
-helpers do
-
-	def find
-		uri = uri(params[:splat].first)
-		halt 404, "Dataset \"#{uri}\" not found." unless @set = Dataset.find(uri)
-	end
-
-	def uri(name)
-		name = URI.encode(name)
-		uri = url_for("/", :full) + name
-	end
-
-end
+mime :rdf, "application/rdf+xml"
+set :default_content, :rdf
 
 ## REST API
 
 get '/?' do
-	Dataset.find_all.join("\n")
+	Dir["datasets/*"].collect{|dataset|  url_for("/", :full) + File.basename(dataset,".rdf")}.sort.join("\n")
 end
 
-get '/*/name/?' do
-	find
-	URI.decode(URI.split(@set.uri)[5].split(/\//)[1])
+get '/:id/?' do
+	send_file File.join("datasets",params[:id] + ".rdf")
 end
 
-get '/*/features/?' do
-	find
-	@set.features.join("\n")
-end
-
-get '/*/compounds/?' do
-	find
-	@set.compounds.join("\n")
-end
-
-get '/*/compound/*/?' do
-	find
-	inchi = params[:splat][1]#.gsub(/(InChI.*) (.*)/,'\1+\2')) # reinsert dropped '+' signs in InChIs
-	@set.compound_features(inchi).join("\n")
-end
-
-# catch the rest
-get '/*/?' do
-	find
-	dataset = {}
-	@set.compounds.each do |c|
-		dataset[c] = @set.compound_features(c)
-	end
-	dataset.to_yaml
-end
-
-# create a dataset
 post '/?' do
-	dataset_uri = uri(params[:name])
-	halt 403, "Dataset \"#{dataset_uri}\" exists." if Dataset.find(dataset_uri)
-	Dataset.create(dataset_uri).uri
-end
-
-put '/*/import/?' do
-	find
-	halt 404, "Compound format #{params[:compound_format]} not (yet) supported" unless params[:compound_format] =~ /smiles|inchi|name/
-	#task = OpenTox::Task.create(@set.uri)
-	data = {}
-	case	params[:file][:type]
-	when "text/csv"
-		File.open(params[:file][:tempfile].path).each_line do |line|
-			record = line.chomp.split(/,\s*/)
-			compound_uri = OpenTox::Compound.new(:smiles => record[0]).uri
-#			begin
-			feature_uri = OpenTox::Feature.new(:name => @set.name, :classification => record[1]).uri
-#			rescue
-#				puts "Error: " + line
-#				puts record.join("\t")
-#				puts @set.name.to_s
-#				#puts [record[0] , @set.name , record[1]].to_yaml
-#			end
-			data[compound_uri] = [] unless data[compound_uri]
-			data[compound_uri] << feature_uri
+	case request.content_type
+	when"application/rdf+xml"
+		input =	request.env["rack.input"].read
+		id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".rdf").to_i}.sort.last
+		if id.nil?
+			id = 1
+		else
+			id += 1
 		end
+		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write input }
+		url_for("/#{id}", :full)
 	else
-		halt 404, "File format #{request.content_type} not (yet) supported"
+		"MIME type \"#{request.content_type}\" not supported."
 	end
-	@set.add(data.to_yaml)
-	@set.uri
 end
 
-# import yaml
-put '/*/?' do
-	find
-	@set.add(params[:features])
+put '/:id/?' do
+	case request.content_type
+	when"application/rdf+xml"
+		input =	request.env["rack.input"].read
+		id = params[:id]
+		File.delete(File.join("datasets",id.to_s + ".rdf"))
+		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write input }
+		url_for("/#{id}", :full)
+	else
+		"MIME type \"#{request.content_type}\" not supported."
+	end
 end
 
-delete '/*/?' do
-	find
-	@set.delete
+delete '/:id/?' do
+	path = File.join("datasets",params[:id] + ".rdf")
+	if File.exists? path
+		File.delete path
+		"Dataset #{params[:id]} deleted."
+	else
+		status 404
+		"Dataset #{params[:id]} does not exist."
+	end
 end
