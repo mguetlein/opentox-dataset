@@ -14,6 +14,19 @@ get '/:id/?' do
 	send_file File.join("datasets",params[:id] + ".rdf")
 end
 
+get '/:id/features/?' do
+
+	storage = Redland::MemoryStore.new
+	parser = Redland::Parser.new
+	data = Redland::Model.new storage
+	rdf = File.read File.join(File.dirname(__FILE__),"datasets","#{params[:id]}.rdf")
+	parser.parse_string_into_model(data,rdf,Redland::Uri.new('/'))
+
+	features = []
+	data.triples { |s,p,o| features << p.uri.to_s }
+	features.uniq.join("\n")
+end
+
 post '/?' do
 	case request.content_type
 	when"application/rdf+xml"
@@ -53,4 +66,11 @@ delete '/:id/?' do
 		status 404
 		"Dataset #{params[:id]} does not exist."
 	end
+end
+
+delete '/?' do
+	Dir["datasets/*rdf"].each do |f|
+		File.delete f
+	end
+	"All datasets deleted."
 end

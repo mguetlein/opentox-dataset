@@ -7,7 +7,7 @@ require 'rack/contrib'
 FileUtils.mkdir_p 'log' unless File.exists?('log')
 FileUtils.mkdir_p 'datasets' unless File.exists?('datasets')
 log = File.new("log/#{ENV["RACK_ENV"]}.log", "a")
-$stdout.reopen(log)
+#$stdout.reopen(log)
 $stderr.reopen(log)
  
 if ENV['RACK_ENV'] == 'production'
