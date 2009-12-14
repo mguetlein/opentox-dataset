@@ -3,8 +3,38 @@ OpenTox Dataset
 
 * An OpenTox REST Webservice
 * Stores associations between compounds and features in datasets
-* Implements the OpenTox dataset API
+* Implements the OpenTox compound API 1.1 (http://opentox.org/dev/apis/api-1.1/dataset)
 
-Documentation: Source code (application.rb)
+REST operations:
+
+Get a list of datasets  GET     /       -                       List of dataset URIs    200,400,404
+Get a dataset           GET     /{id}   -                       Dataset representation  200,400,404
+Upload a dataset        POST    /       Dataset representation  Dataset URI             200,400,404 
+Delete a dataset        DELETE  /{id}   -                       -                       200,404
+Delete all datasets     DELETE  /       -                       -                       200,404
+
+Supported MIME formats (http://chemical-mime.sourceforge.net/):
+
+  * application/rdf+xml (default): read/ OWL-DL
+
+Examples:
+
+Get a list of all datasets:
+
+  curl http://webservices.in-silico.ch/test/dataset
+
+Upload a dataset:
+
+  curl -X POST -H "Content-Type:application/rdf+xml" --data-binary @{my_rdf_file} http://webservices.in-silico.ch/test/dataset
+
+Get a dataset representation:
+
+  curl http://webservices.in-silico.ch/test/dataset/{id}
+
+Delete a dataset:
+
+  curl -X DELETE http://webservices.in-silico.ch/test/dataset/{id}
+
+Installation: http://wiki.github.com/helma/opentox-documentation/installation-of-opentox-webservices
 
 Copyright (c) 2009 Christoph Helma. See LICENSE for details.
