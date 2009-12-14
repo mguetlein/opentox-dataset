@@ -14,48 +14,61 @@ get '/:id/?' do
 	send_file File.join("datasets",params[:id] + ".rdf")
 end
 
+get '/:id/features/:feature_id/?' do
+	OpenTox::Dataset.find(url_for("/#{params[:id]}", :full)).feature(params[:feature_id])
+end
+
 get '/:id/features/?' do
-
-	storage = Redland::MemoryStore.new
-	parser = Redland::Parser.new
-	data = Redland::Model.new storage
-	rdf = File.read File.join(File.dirname(__FILE__),"datasets","#{params[:id]}.rdf")
-	parser.parse_string_into_model(data,rdf,Redland::Uri.new('/'))
-
-	features = []
-	data.triples { |s,p,o| features << p.uri.to_s }
-	features.uniq.join("\n")
+	OpenTox::Dataset.find(url_for("/#{params[:id]}", :full)).features
 end
 
 post '/?' do
+	id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".rdf").to_i}.sort.last
+	id = id.nil? ? 1 : id + 1
+	uri = url_for("/#{id}", :full)
+	content_type = request.content_type
+	content_type = "application/rdf+xml" if content_type.nil?
 	case request.content_type
-	when"application/rdf+xml"
-		input =	request.env["rack.input"].read
-		id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".rdf").to_i}.sort.last
-		if id.nil?
-			id = 1
-		else
-			id += 1
-		end
-		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write input }
-		url_for("/#{id}", :full)
+=begin
+		when /yaml/
+			File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write model.to_string }
+			url_for("/#{id}", :full)
+=end
+	when "application/rdf+xml"
+		rdf =	request.env["rack.input"].read
+		dataset = OpenTox::Dataset.new
+		dataset.rdf = rdf
+		dataset.uri = uri
 	else
-		"MIME type \"#{request.content_type}\" not supported."
+		halt 404, "MIME type \"#{request.content_type}\" not supported."
 	end
+	File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write dataset.rdf }
+	uri
 end
 
+=begin
 put '/:id/?' do
+	uri = url_for("/#{params[:id]}", :full)
+	id = params[:id]
+	uri =	url_for("/#{id}", :full)
 	case request.content_type
-	when"application/rdf+xml"
+	when "application/rdf+xml"
 		input =	request.env["rack.input"].read
-		id = params[:id]
+		storage = Redland::MemoryStore.new
+		parser = Redland::Parser.new
+		model = Redland::Model.new storage
+		parser.parse_string_into_model(model,input,Redland::Uri.new('/'))
+		dataset = model.subject RDF['type'], OT["Dataset"]
+		identifier = model.object(dataset, DC['identifier'])
+		model.delete dataset, DC['identifier'], identifier
+		model.add dataset, DC['identifier'], uri
 		File.delete(File.join("datasets",id.to_s + ".rdf"))
-		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write input }
-		url_for("/#{id}", :full)
+		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write model.to_string }
 	else
-		"MIME type \"#{request.content_type}\" not supported."
+		halt 404, "MIME type \"#{request.content_type}\" not supported."
 	end
 end
+=end
 
 delete '/:id/?' do
 	path = File.join("datasets",params[:id] + ".rdf")
