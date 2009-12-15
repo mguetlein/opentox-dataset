@@ -15,7 +15,7 @@ Delete all datasets     DELETE  /       -                       -               
 
 Supported MIME formats (http://chemical-mime.sourceforge.net/):
 
-  * application/rdf+xml (default): read/ OWL-DL
+  * application/rdf+xml (default): read/write OWL-DL
 
 Examples:
 
