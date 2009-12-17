@@ -2,8 +2,8 @@ require 'rubygems'
 gem 'opentox-ruby-api-wrapper', '~>1.2'
 require 'opentox-ruby-api-wrapper'
 
-mime :rdf, "application/rdf+xml"
-set :default_content, :rdf
+#mime :rdf, "application/rdf+xml"
+#set :default_content, :rdf
 
 ## REST API
 
@@ -12,7 +12,20 @@ get '/?' do
 end
 
 get '/:id/?' do
-	send_file File.join("datasets",params[:id] + ".rdf")
+	uri = url_for("/#{params[:id]}", :full)
+	path = File.join("datasets",params[:id] + ".rdf")
+	halt 404, "Dataset #{uri} not found." unless File.exists? path
+	accept = request.env['HTTP_ACCEPT']
+	puts accept
+	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
+	case accept
+	when /rdf/
+		send_file path
+	when /yaml/
+		OpenTox::Dataset.find(uri).to_yaml
+	else
+		halt 400, "Unsupported MIME type '#{accept}'"
+	end
 end
 
 get '/:id/features/:feature_id/?' do
