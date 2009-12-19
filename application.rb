@@ -5,12 +5,12 @@ require 'opentox-ruby-api-wrapper'
 ## REST API
 
 get '/?' do
-	Dir["datasets/*"].collect{|dataset|  url_for("/", :full) + File.basename(dataset,".rdf")}.sort.join("\n")
+	Dir["datasets/*"].collect{|dataset|  url_for("/", :full) + File.basename(dataset,".owl")}.sort.join("\n")
 end
 
 get '/:id/?' do
 	uri = url_for("/#{params[:id]}", :full)
-	path = File.join("datasets",params[:id] + ".rdf")
+	path = File.join("datasets",params[:id] + ".owl")
 	halt 404, "Dataset #{uri} not found." unless File.exists? path
 	accept = request.env['HTTP_ACCEPT']
 	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
@@ -33,7 +33,7 @@ get '/:id/features/?' do
 end
 
 post '/?' do
-	id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".rdf").to_i}.sort.last
+	id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".owl").to_i}.sort.last
 	id = id.nil? ? 1 : id + 1
 	uri = url_for("/#{id}", :full)
 	content_type = request.content_type
@@ -41,7 +41,7 @@ post '/?' do
 	case request.content_type
 =begin
 		when /yaml/
-			File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write model.to_string }
+			File.open(File.join("datasets",id.to_s + ".owl"),"w+") { |f| f.write model.to_string }
 			url_for("/#{id}", :full)
 =end
 	when "application/rdf+xml"
@@ -52,7 +52,7 @@ post '/?' do
 	else
 		halt 404, "MIME type \"#{request.content_type}\" not supported."
 	end
-	File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write dataset.rdf }
+	File.open(File.join("datasets",id.to_s + ".owl"),"w+") { |f| f.write dataset.rdf }
 	uri
 end
 
@@ -81,7 +81,7 @@ end
 =end
 
 delete '/:id/?' do
-	path = File.join("datasets",params[:id] + ".rdf")
+	path = File.join("datasets",params[:id] + ".owl")
 	if File.exists? path
 		File.delete path
 		"Dataset #{params[:id]} deleted."
