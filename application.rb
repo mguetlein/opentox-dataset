@@ -39,11 +39,6 @@ post '/?' do
 	content_type = request.content_type
 	content_type = "application/rdf+xml" if content_type.nil?
 	case request.content_type
-=begin
-		when /yaml/
-			File.open(File.join("datasets",id.to_s + ".owl"),"w+") { |f| f.write model.to_string }
-			url_for("/#{id}", :full)
-=end
 	when "application/rdf+xml"
 		rdf =	request.env["rack.input"].read
 		dataset = OpenTox::Dataset.new
@@ -92,7 +87,7 @@ delete '/:id/?' do
 end
 
 delete '/?' do
-	Dir["datasets/*rdf"].each do |f|
+	Dir["datasets/*owl"].each do |f|
 		File.delete f
 	end
 	"All datasets deleted."
