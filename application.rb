@@ -1,22 +1,37 @@
 require 'rubygems'
 gem 'opentox-ruby-api-wrapper', '~>1.2'
 require 'opentox-ruby-api-wrapper'
+require 'dm-core'
+require 'dm-serializer'
+require 'dm-timestamps'
+require 'dm-types'
+
+DataMapper::setup(:default, "sqlite3://#{Dir.pwd}/dataset.sqlite3")
+
+class Dataset
+	include DataMapper::Resource
+	property :id, Serial
+	property :uri, String, :length => 100
+	property :owl, Text
+	property :created_at, DateTime
+end
+
+DataMapper.auto_upgrade!
 
 ## REST API
 
 get '/?' do
-	Dir["datasets/*"].collect{|dataset|  url_for("/", :full) + File.basename(dataset,".owl")}.sort.join("\n")
+	Dataset.all.collect{|d| d.uri}.join("\n")
 end
 
 get '/:id/?' do
-	uri = url_for("/#{params[:id]}", :full)
-	path = File.join("datasets",params[:id] + ".owl")
-	halt 404, "Dataset #{uri} not found." unless File.exists? path
+	dataset = Dataset.get(params[:id])
+	halt 404, "Dataset #{uri} not found." unless dataset
 	accept = request.env['HTTP_ACCEPT']
 	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
 	case accept
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
-		send_file path
+		dataset.owl
 	when /yaml/
 		OpenTox::Dataset.find(uri).to_yaml
 	else
@@ -33,62 +48,38 @@ get '/:id/features/?' do
 end
 
 post '/?' do
-	id = Dir["datasets/*"].collect{|dataset|  File.basename(dataset,".owl").to_i}.sort.last
-	id = id.nil? ? 1 : id + 1
-	uri = url_for("/#{id}", :full)
+	dataset = Dataset.new
+	dataset.save
+	uri = url_for("/#{dataset.id}", :full)
 	content_type = request.content_type
 	content_type = "application/rdf+xml" if content_type.nil?
 	case request.content_type
 	when "application/rdf+xml"
 		rdf =	request.env["rack.input"].read
-		dataset = OpenTox::Dataset.new
-		dataset.rdf = rdf
-		dataset.uri = uri
+		d= OpenTox::Dataset.new
+		d.rdf = rdf
+		d.uri = uri
 	else
 		halt 404, "MIME type \"#{request.content_type}\" not supported."
 	end
-	File.open(File.join("datasets",id.to_s + ".owl"),"w+") { |f| f.write dataset.rdf }
+	dataset.owl = d.rdf
+	dataset.uri = uri
+	dataset.save
+	print dataset.uri
+	puts "saved"
 	uri
 end
 
-=begin
-put '/:id/?' do
-	uri = url_for("/#{params[:id]}", :full)
-	id = params[:id]
-	uri =	url_for("/#{id}", :full)
-	case request.content_type
-	when "application/rdf+xml"
-		input =	request.env["rack.input"].read
-		storage = Redland::MemoryStore.new
-		parser = Redland::Parser.new
-		model = Redland::Model.new storage
-		parser.parse_string_into_model(model,input,Redland::Uri.new('/'))
-		dataset = model.subject RDF['type'], OT["Dataset"]
-		identifier = model.object(dataset, DC['identifier'])
-		model.delete dataset, DC['identifier'], identifier
-		model.add dataset, DC['identifier'], uri
-		File.delete(File.join("datasets",id.to_s + ".rdf"))
-		File.open(File.join("datasets",id.to_s + ".rdf"),"w+") { |f| f.write model.to_string }
-	else
-		halt 404, "MIME type \"#{request.content_type}\" not supported."
-	end
-end
-=end
-
 delete '/:id/?' do
-	path = File.join("datasets",params[:id] + ".owl")
-	if File.exists? path
-		File.delete path
+	begin
+		Dataset.get(params[:id]).destroy!
 		"Dataset #{params[:id]} deleted."
-	else
-		status 404
-		"Dataset #{params[:id]} does not exist."
+	rescue
+		halt 404, "Dataset #{params[:id]} does not exist."
 	end
 end
 
 delete '/?' do
-	Dir["datasets/*owl"].each do |f|
-		File.delete f
-	end
+	Dataset.all.each { |d| d.destroy! }
 	"All datasets deleted."
 end
