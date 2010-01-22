@@ -1,6 +1,7 @@
 require 'rubygems'
 gem 'opentox-ruby-api-wrapper', '~>1.2'
 require 'opentox-ruby-api-wrapper'
+require 'do_sqlite3'
 require 'dm-core'
 require 'dm-serializer'
 require 'dm-timestamps'
@@ -12,7 +13,8 @@ class Dataset
 	include DataMapper::Resource
 	property :id, Serial
 	property :uri, String, :length => 100
-	property :owl, Text
+	property :file, String
+	property :owl, Text, :length => 1000000
 	property :created_at, DateTime
 end
 
@@ -66,7 +68,6 @@ post '/?' do
 	dataset.uri = uri
 	dataset.save
 	print dataset.uri
-	puts "saved"
 	uri
 end
 
