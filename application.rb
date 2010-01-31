@@ -93,7 +93,11 @@ end
 
 delete '/?' do
 	Dataset.all.each do |d|
-		File.delete d.file
+		begin
+			File.delete d.file 
+		rescue
+			LOGGER.error "Cannot delete dataset file '#{d.file}'"
+		end
 	 	d.destroy!
 	end
 	"All datasets deleted."
