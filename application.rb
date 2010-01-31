@@ -14,8 +14,17 @@ class Dataset
 	property :id, Serial
 	property :uri, String, :length => 100
 	property :file, String
-	property :owl, Text, :length => 1000000
+	#property :owl, Text, :length => 1000000
 	property :created_at, DateTime
+
+	def owl
+		File.read self.file
+	end
+
+	def owl=(owl)
+		self.file = File.join(File.dirname(File.expand_path(__FILE__)),'public',"#{id}.owl")
+		File.open(self.file,"w+") { |f| f.write owl }
+	end
 end
 
 DataMapper.auto_upgrade!
@@ -73,7 +82,9 @@ end
 
 delete '/:id/?' do
 	begin
-		Dataset.get(params[:id]).destroy!
+		dataset = Dataset.get(params[:id])
+		File.delete dataset.file
+		dataset.destroy!
 		"Dataset #{params[:id]} deleted."
 	rescue
 		halt 404, "Dataset #{params[:id]} does not exist."
@@ -81,6 +92,9 @@ delete '/:id/?' do
 end
 
 delete '/?' do
-	Dataset.all.each { |d| d.destroy! }
+	Dataset.all.each do |d|
+		File.delete d.file
+	 	d.destroy!
+	end
 	"All datasets deleted."
 end
