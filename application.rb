@@ -52,25 +52,42 @@ get '/:id/features/?' do
 end
 
 post '/?' do
-	dataset = Dataset.new
-	dataset.save
-	uri = url_for("/#{dataset.id}", :full)
-	content_type = request.content_type
-	content_type = "application/rdf+xml" if content_type.nil?
-	case request.content_type
-	when "application/rdf+xml"
-		rdf =	request.env["rack.input"].read
-		d= OpenTox::Dataset.new
-		d.rdf = rdf
-		d.uri = uri
-	else
-		halt 404, "MIME type \"#{request.content_type}\" not supported."
+	task = OpenTox::Task.create
+	pid = Spork.spork(:logger => LOGGER) do
+
+		task.started
+		LOGGER.debug "Dataset task #{task.uri} started"
+
+		dataset = Dataset.new
+		dataset.save
+		uri = url_for("/#{dataset.id}", :full)
+		content_type = request.content_type
+		content_type = "application/rdf+xml" if content_type.nil?
+		case request.content_type
+		when "application/rdf+xml"
+			rdf =	request.env["rack.input"].read
+			d= OpenTox::Dataset.new
+			d.rdf = rdf
+			d.uri = uri
+		else
+			halt 404, "MIME type \"#{request.content_type}\" not supported."
+		end
+		LOGGER.debug "Saving dataset #{uri}."
+		begin
+			dataset.owl = d.rdf
+			dataset.uri = uri 
+			dataset.save
+			task.completed(uri) 
+		rescue => e
+			LOGGER.error e.message
+			LOGGER.info e.backtrace
+			halt 500, "Could not save dataset #{uri}."
+		end
+		LOGGER.debug "#{dataset.uri} saved."
 	end
-	dataset.owl = d.rdf
-	dataset.uri = uri
-	dataset.save
-	print dataset.uri
-	uri
+	task.pid = pid
+	#status 303 # rest client tries to redirect
+ 	task.uri
 end
 
 delete '/:id/?' do
