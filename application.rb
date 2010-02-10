@@ -29,8 +29,13 @@ get '/?' do
 end
 
 get '/:id/?' do
-	dataset = Dataset.get(params[:id])
-	halt 404, "Dataset #{uri} not found." unless dataset
+	begin
+		dataset = Dataset.get(params[:id])
+	rescue => e
+		LOGGER.error e.message
+		LOGGER.warn e.backtrace
+		halt 404, "Dataset #{params[:id]} not found."
+	end
 	accept = request.env['HTTP_ACCEPT']
 	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
 	case accept
