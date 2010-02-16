@@ -5,8 +5,8 @@ require 'opentox-ruby-api-wrapper'
 class Dataset
 	include DataMapper::Resource
 	property :id, Serial
-	property :uri, String, :length => 100
-	property :file, String
+	property :uri, String, :length => 255
+	property :file, String, :length => 255
 	#property :owl, Text, :length => 1000000
 	property :created_at, DateTime
 
@@ -42,7 +42,7 @@ get '/:id/?' do
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
 		dataset.owl
 	when /yaml/
-		OpenTox::Dataset.find(uri).to_yaml
+		OpenTox::Dataset.find(dataset.uri).to_yaml
 	else
 		halt 400, "Unsupported MIME type '#{accept}'"
 	end
