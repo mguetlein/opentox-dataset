@@ -25,6 +25,7 @@ DataMapper.auto_upgrade!
 ## REST API
 
 get '/?' do
+	response['Content-Type'] = 'text/uri-list'
 	Dataset.all.collect{|d| d.uri}.join("\n")
 end
 
@@ -40,8 +41,10 @@ get '/:id/?' do
 	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
 	case accept
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
+		response['Content-Type'] = 'application/rdf+xml'
 		dataset.owl
 	when /yaml/
+		response['Content-Type'] = 'application/x-yaml'
 		OpenTox::Dataset.find(dataset.uri).to_yaml
 	else
 		halt 400, "Unsupported MIME type '#{accept}'"
@@ -92,6 +95,7 @@ post '/?' do
 	end
 	task.pid = pid
 	#status 303 # rest client tries to redirect
+	response['Content-Type'] = 'text/uri-list'
  	task.uri
   
   
@@ -104,6 +108,7 @@ delete '/:id/?' do
 		dataset = Dataset.get(params[:id])
 		File.delete dataset.file
 		dataset.destroy!
+		response['Content-Type'] = 'text/plain'
 		"Dataset #{params[:id]} deleted."
 	rescue
 		halt 404, "Dataset #{params[:id]} does not exist."
@@ -121,5 +126,6 @@ delete '/?' do
 	 	#d.destroy!
 	end
   Dataset.auto_migrate!
+	response['Content-Type'] = 'text/plain'
 	"All datasets deleted."
 end
