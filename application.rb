@@ -1,5 +1,5 @@
 require 'rubygems'
-gem 'opentox-ruby-api-wrapper', '= 1.3.0'
+gem 'opentox-ruby-api-wrapper', '= 1.3.1'
 require 'opentox-ruby-api-wrapper'
 
 LOGGER.progname = File.expand_path(__FILE__)
