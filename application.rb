@@ -28,7 +28,7 @@ DataMapper.auto_upgrade!
 
 get '/?' do
 	response['Content-Type'] = 'text/uri-list'
-	Dataset.all.collect{|d| d.uri}.join("\n")
+	Dataset.all.collect{|d| d.uri}.join("\n") + "\n"
 end
 
 get '/:id/?' do
