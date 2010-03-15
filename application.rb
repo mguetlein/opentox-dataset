@@ -10,10 +10,17 @@ class Dataset
 	property :uri, String, :length => 255
 	property :file, String, :length => 255
 	property :yaml, Text, :length => 2**32-1 
-	#property :owl, Text, :length => 1000000
 	property :created_at, DateTime
 
-	def owl
+=begin
+	def to_owl
+		data = YAML.load(@yaml)
+		owl = OpenTox::Owl.new
+		owl.class = 'Dataset'
+		owl.title = data.title
+		owl.source = data.source
+		data.data.each do |compound,features|
+			feature 
 		File.read self.file
 	end
 
@@ -21,6 +28,7 @@ class Dataset
 		self.file = File.join(File.dirname(File.expand_path(__FILE__)),'public',"#{id}.owl")
 		File.open(self.file,"w+") { |f| f.write owl }
 	end
+=end
 end
 
 DataMapper.auto_upgrade!
@@ -65,11 +73,11 @@ get '/:id/features/?' do
 end
 
 post '/?' do
-	task = OpenTox::Task.create
-	pid = Spork.spork(:logger => LOGGER) do
+#	task = OpenTox::Task.create
+#	pid = Spork.spork(:logger => LOGGER) do
 
-		task.started
-		LOGGER.debug "Dataset task #{task.uri} started"
+#		task.started
+#		LOGGER.debug "Dataset task #{task.uri} started"
 
 		dataset = Dataset.new
 		dataset.save
@@ -89,18 +97,19 @@ post '/?' do
 		LOGGER.debug "Saving dataset #{dataset.uri}."
 		begin
 			dataset.save
-			task.completed(dataset.uri) 
+#			task.completed(dataset.uri) 
 		rescue => e
 			LOGGER.error e.message
 			LOGGER.info e.backtrace
 			halt 500, "Could not save dataset #{dataset.uri}."
 		end
 		LOGGER.debug "#{dataset.uri} saved."
-	end
-	task.pid = pid
+#	end
+#	task.pid = pid
 	#status 303 # rest client tries to redirect
 	response['Content-Type'] = 'text/uri-list'
- 	task.uri + "\n"
+# 	task.uri + "\n"
+	dataset.uri + "\n"
 end
 
 delete '/:id/?' do
