@@ -89,7 +89,6 @@ post '/?' do
 		else
 			halt 404, "MIME type \"#{request.content_type}\" not supported."
 		end
-		LOGGER.debug "Saving dataset #{dataset.uri}."
 		begin
 			dataset.save
 		rescue => e
