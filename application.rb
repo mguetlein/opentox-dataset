@@ -12,23 +12,21 @@ class Dataset
 	property :yaml, Text, :length => 2**32-1 
 	property :created_at, DateTime
 
-=begin
 	def to_owl
-		data = YAML.load(@yaml)
-		owl = OpenTox::Owl.new
-		owl.class = 'Dataset'
-		owl.title = data.title
-		owl.source = data.source
+		data = YAML.load(yaml)
+		owl = OpenTox::Owl.new 'Dataset', uri
+		['title', 'source', 'identifier'].each do |method|
+			eval "owl.#{method} = data.#{method}"
+		end
 		data.data.each do |compound,features|
-			feature 
-		File.read self.file
+			owl.add_data_entries compound,features
+		end
+		owl.rdf
 	end
 
-	def owl=(owl)
-		self.file = File.join(File.dirname(File.expand_path(__FILE__)),'public',"#{id}.owl")
-		File.open(self.file,"w+") { |f| f.write owl }
-	end
-=end
+	#def from_owl
+	#end
+
 end
 
 DataMapper.auto_upgrade!
@@ -51,9 +49,9 @@ get '/:id/?' do
 	accept = request.env['HTTP_ACCEPT']
 	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
 	case accept
-#	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
-#		response['Content-Type'] = 'application/rdf+xml'
-#		dataset.owl
+	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
+		response['Content-Type'] = 'application/rdf+xml'
+		dataset.to_owl
 	when /yaml/
 		response['Content-Type'] = 'application/x-yaml'
 		dataset.yaml
@@ -75,11 +73,6 @@ get '/:id/compounds/?' do
 end
 
 post '/?' do
-#	task = OpenTox::Task.create
-#	pid = Spork.spork(:logger => LOGGER) do
-
-#		task.started
-#		LOGGER.debug "Dataset task #{task.uri} started"
 
 		dataset = Dataset.new
 		dataset.save
@@ -105,18 +98,13 @@ post '/?' do
 			halt 500, "Could not save dataset #{dataset.uri}."
 		end
 		LOGGER.debug "#{dataset.uri} saved."
-#	end
-#	task.pid = pid
-	#status 303 # rest client tries to redirect
 	response['Content-Type'] = 'text/uri-list'
-# 	task.uri + "\n"
 	dataset.uri + "\n"
 end
 
 delete '/:id/?' do
 	begin
 		dataset = Dataset.get(params[:id])
-		#File.delete dataset.file
 		dataset.destroy!
 		response['Content-Type'] = 'text/plain'
 		"Dataset #{params[:id]} deleted."
