@@ -56,7 +56,6 @@ get '/:id/?' do
 #		dataset.owl
 	when /yaml/
 		response['Content-Type'] = 'application/x-yaml'
-		#OpenTox::Dataset.find(dataset.uri).to_yaml
 		dataset.yaml
 	else
 		halt 400, "Unsupported MIME type '#{accept}'"
@@ -69,7 +68,10 @@ end
 
 get '/:id/features/?' do
 	YAML.load(Dataset.get(params[:id]).yaml).features.join("\n") + "\n"
-	#OpenTox::Dataset.find(url_for("/#{params[:id]}", :full)).features
+end
+
+get '/:id/compounds/?' do
+	YAML.load(Dataset.get(params[:id]).yaml).compounds.join("\n") + "\n"
 end
 
 post '/?' do
@@ -97,7 +99,6 @@ post '/?' do
 		LOGGER.debug "Saving dataset #{dataset.uri}."
 		begin
 			dataset.save
-#			task.completed(dataset.uri) 
 		rescue => e
 			LOGGER.error e.message
 			LOGGER.info e.backtrace
