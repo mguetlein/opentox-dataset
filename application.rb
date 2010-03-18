@@ -1,6 +1,9 @@
 require 'rubygems'
 gem 'opentox-ruby-api-wrapper', '= 1.3.1'
 require 'opentox-ruby-api-wrapper'
+#require 'sinatra/respond_to'
+#Sinatra::Application.register Sinatra::RespondTo
+
 
 LOGGER.progname = File.expand_path(__FILE__)
 
@@ -10,12 +13,13 @@ class Dataset
 	property :uri, String, :length => 255
 	property :file, String, :length => 255
 	property :yaml, Text, :length => 2**32-1 
+	property :owl, Text, :length => 2**32-1 
 	property :created_at, DateTime
 
 	def to_owl
 		data = YAML.load(yaml)
 		owl = OpenTox::Owl.new 'Dataset', uri
-		['title', 'source', 'identifier'].each do |method|
+		['title', 'source'].each do |method|
 			eval "owl.#{method} = data.#{method}"
 		end
 		data.data.each do |compound,features|
@@ -38,7 +42,18 @@ get '/?' do
 	Dataset.all.collect{|d| d.uri}.join("\n") + "\n"
 end
 
-get '/:id/?' do
+get '/:id' do
+	accept = request.env['HTTP_ACCEPT']
+	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
+	# workaround for browser links
+	case params[:id]
+	when /.yaml$/
+		params[:id].sub!(/.yaml$/,'')
+		accept =  'application/x-yaml'
+	when /.rdf$/
+		params[:id].sub!(/.rdf$/,'')
+		accept =  'application/rdf+xml'
+	end
 	begin
 		dataset = Dataset.get(params[:id])
 	rescue => e
@@ -46,12 +61,14 @@ get '/:id/?' do
 		LOGGER.warn e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
 	end
-	accept = request.env['HTTP_ACCEPT']
-	accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
 	case accept
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
 		response['Content-Type'] = 'application/rdf+xml'
-		dataset.to_owl
+		unless dataset.owl # lazy owl creation
+			dataset.owl = dataset.to_owl
+			dataset.save
+		end
+		dataset.owl
 	when /yaml/
 		response['Content-Type'] = 'application/x-yaml'
 		dataset.yaml
