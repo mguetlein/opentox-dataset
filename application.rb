@@ -18,12 +18,14 @@ class Dataset
 
 	def to_owl
 		data = YAML.load(yaml)
-		owl = OpenTox::Owl.new 'Dataset', uri
+		owl = OpenTox::Owl.create 'Dataset', uri
 		['title', 'source'].each do |method|
 			eval "owl.#{method} = data.#{method}"
 		end
-		data.data.each do |compound,features|
-			owl.add_data_entries compound,features
+		if data.data
+			data.data.each do |compound,features|
+				owl.add_data_entries compound,features
+			end
 		end
 		owl.rdf
 	end
@@ -57,8 +59,7 @@ get '/:id' do
 	begin
 		dataset = Dataset.get(params[:id])
 	rescue => e
-		LOGGER.error e.message
-		LOGGER.warn e.backtrace
+		raise e.message + e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
 	end
 	case accept
