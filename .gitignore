@@ -3,3 +3,4 @@ api_key.rb
 tmp/*
 log/*
 datasets/*
+public/*
