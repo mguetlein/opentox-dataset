@@ -110,7 +110,7 @@ post '/?' do
 		begin
 			#dataset.owl = d.rdf
       #dataset.uri = uri 
-			dataset.save
+			raise "saving failed: "+dataset.errors.inspect unless dataset.save
 		rescue => e
 			LOGGER.error e.message
 			LOGGER.info e.backtrace
