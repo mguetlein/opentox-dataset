@@ -61,6 +61,7 @@ get '/:id' do
 		LOGGER.warn e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
 	end
+	halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
 	case accept
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
 		response['Content-Type'] = 'application/rdf+xml'
