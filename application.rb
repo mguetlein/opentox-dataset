@@ -18,12 +18,14 @@ class Dataset
 
 	def to_owl
 		data = YAML.load(yaml)
-		owl = OpenTox::Owl.new 'Dataset', uri
+		owl = OpenTox::Owl.create 'Dataset', uri
 		['title', 'source'].each do |method|
 			eval "owl.#{method} = data.#{method}"
 		end
-		data.data.each do |compound,features|
-			owl.add_data_entries compound,features
+		if data.data
+			data.data.each do |compound,features|
+				owl.add_data_entries compound,features
+			end
 		end
 		owl.rdf
 	end
@@ -57,8 +59,7 @@ get '/:id' do
 	begin
 		dataset = Dataset.get(params[:id])
 	rescue => e
-		LOGGER.error e.message
-		LOGGER.warn e.backtrace
+		raise e.message + e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
 	end
 	halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
@@ -108,7 +109,9 @@ post '/?' do
 			halt 404, "MIME type \"#{request.content_type}\" not supported."
 		end
 		begin
-			dataset.save
+			#dataset.owl = d.rdf
+      #dataset.uri = uri 
+			raise "saving failed: "+dataset.errors.inspect unless dataset.save
 		rescue => e
 			LOGGER.error e.message
 			LOGGER.info e.backtrace
@@ -131,6 +134,7 @@ delete '/:id/?' do
 end
 
 delete '/?' do
+  
 	Dataset.all.each do |d|
 		begin
 			File.delete d.file 
