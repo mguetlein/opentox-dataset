@@ -51,13 +51,14 @@ get '/:id' do
 	case params[:id]
 	when /.yaml$/
 		params[:id].sub!(/.yaml$/,'')
-		accept =  'application/x-yaml'
+		accept =  'text/x-yaml'
 	when /.rdf$/
 		params[:id].sub!(/.rdf$/,'')
 		accept =  'application/rdf+xml'
 	end
 	begin
 		dataset = Dataset.get(params[:id])
+    halt 404, "Dataset #{params[:id]} not found." unless dataset
 	rescue => e
 		raise e.message + e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
@@ -71,7 +72,7 @@ get '/:id' do
 		end
 		dataset.owl
 	when /yaml/
-		response['Content-Type'] = 'application/x-yaml'
+		response['Content-Type'] = 'text/x-yaml'
 		dataset.yaml
 	else
 		halt 400, "Unsupported MIME type '#{accept}'"
