@@ -19,19 +19,16 @@ class Dataset
 	def to_owl
 		data = YAML.load(yaml)
 		owl = OpenTox::Owl.create 'Dataset', uri
-		['title', 'source'].each do |method|
-			eval "owl.#{method} = data.#{method}"
+		['title', 'creator'].each do |method|
+			owl.set(method, data.send(method))
 		end
 		if data.data
 			data.data.each do |compound,features|
 				owl.add_data_entries compound,features
 			end
-		end
+	  end
 		owl.rdf
 	end
-
-	#def from_owl
-	#end
 
 end
 
