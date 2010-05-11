@@ -53,6 +53,9 @@ get '/:id' do
 	when /.rdf$/
 		params[:id].sub!(/.rdf$/,'')
 		accept =  'application/rdf+xml'
+	when /.xls$/
+		params[:id].sub!(/.xls$/,'')
+		accept =  'application/vnd.ms-excel'	
 	end
 	begin
 		dataset = Dataset.get(params[:id])
@@ -72,7 +75,31 @@ get '/:id' do
 	when /yaml/
 		response['Content-Type'] = 'application/x-yaml'
 		dataset.yaml
-	else
+  when /ms-excel/
+    require 'spreadsheet'
+    response['Content-Type'] = 'application/vnd.ms-excel'    
+    book = Spreadsheet::Workbook.new
+    tmp = Tempfile.new('opentox-feature-xls')
+    sheet = book.create_worksheet  :name => 'Training Data'
+    sheet.update_row(0, "Chemical Structure","Activity")
+    sheet.column(0).width = 100
+    headline = Spreadsheet::Format.new :weight => :bold, :size => 12
+    2.times{|x| sheet.row(0).set_format(x , headline)}
+    i = 1
+    YAML.load(dataset.yaml).data.each do |line|
+      smilestring = RestClient.get(line[0], :accept => 'chemical/x-daylight-smiles').to_s
+      line[1][0] ? val = line[1][0].first[1] ? "1" : "0" : val = "" 
+      sheet.update_row(i, smilestring , val)
+      i+=1 
+    end
+    begin    
+      book.write tmp.path
+      return tmp
+    rescue
+      
+    end
+    tmp.close!
+  else
 		halt 400, "Unsupported MIME type '#{accept}'"
 	end
 end
