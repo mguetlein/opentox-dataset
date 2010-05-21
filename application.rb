@@ -1,9 +1,6 @@
 require 'rubygems'
-gem 'opentox-ruby-api-wrapper', '= 1.5.3'
+gem 'opentox-ruby-api-wrapper', '= 1.5.4'
 require 'opentox-ruby-api-wrapper'
-#require 'sinatra/respond_to'
-#Sinatra::Application.register Sinatra::RespondTo
-
 
 LOGGER.progname = File.expand_path(__FILE__)
 
