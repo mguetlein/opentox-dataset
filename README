@@ -21,19 +21,19 @@ Examples:
 
 Get a list of all datasets:
 
-  curl http://webservices.in-silico.ch/test/dataset
+  curl http://webservices.in-silico.ch/dataset
 
 Upload a dataset:
 
-  curl -X POST -H "Content-Type:application/rdf+xml" --data-binary @{my_rdf_file} http://webservices.in-silico.ch/test/dataset
+  curl -X POST -H "Content-Type:application/rdf+xml" --data-binary @{my_rdf_file} http://webservices.in-silico.ch/dataset
 
 Get a dataset representation:
 
-  curl http://webservices.in-silico.ch/test/dataset/{id}
+  curl http://webservices.in-silico.ch/dataset/{id}
 
 Delete a dataset:
 
-  curl -X DELETE http://webservices.in-silico.ch/test/dataset/{id}
+  curl -X DELETE http://webservices.in-silico.ch/dataset/{id}
 
 Installation: http://wiki.github.com/helma/opentox-documentation/installation-of-opentox-webservices
 
