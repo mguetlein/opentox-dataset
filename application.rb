@@ -1,8 +1,6 @@
 require 'rubygems'
 gem 'opentox-ruby-api-wrapper', '= 1.5.3'
 require 'opentox-ruby-api-wrapper'
-#require 'sinatra/respond_to'
-#Sinatra::Application.register Sinatra::RespondTo
 
 
 LOGGER.progname = File.expand_path(__FILE__)
@@ -84,20 +82,21 @@ get '/:id' do
 		dataset.yaml
   when /ms-excel/
     require 'spreadsheet'
-    response['Content-Type'] = 'application/vnd.ms-excel'    
+    response['Content-Type'] = 'application/vnd.ms-excel'
+    Spreadsheet.client_encoding = 'UTF-8'
     book = Spreadsheet::Workbook.new
     tmp = Tempfile.new('opentox-feature-xls')
     sheet = book.create_worksheet  :name => 'Training Data'
-    sheet.update_row(0, "Chemical Structure","Activity")
     sheet.column(0).width = 100
-    headline = Spreadsheet::Format.new :weight => :bold, :size => 12
-    2.times{|x| sheet.row(0).set_format(x , headline)}
-    i = 1
+    i = 0
     YAML.load(dataset.yaml).data.each do |line|
-      smilestring = RestClient.get(line[0], :accept => 'chemical/x-daylight-smiles').to_s
-      line[1][0] ? val = line[1][0].first[1] ? "1" : "0" : val = "" 
-      sheet.update_row(i, smilestring , val)
-      i+=1 
+      begin
+        smilestring = RestClient.get(line[0], :accept => 'chemical/x-daylight-smiles').to_s
+        line[1][0] ? val = line[1][0].first[1] ? "1" : "0" : val = "" 
+        sheet.update_row(i, smilestring , val)
+        i+=1 
+      rescue
+      end
     end
     begin    
       book.write tmp.path
