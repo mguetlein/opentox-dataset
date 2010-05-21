@@ -1,12 +1,6 @@
 require 'rubygems'
-<<<<<<< HEAD:application.rb
-gem 'opentox-ruby-api-wrapper', '= 1.5.3'
-require 'opentox-ruby-api-wrapper'
-
-=======
 gem 'opentox-ruby-api-wrapper', '= 1.5.4'
 require 'opentox-ruby-api-wrapper'
->>>>>>> development:application.rb
 
 LOGGER.progname = File.expand_path(__FILE__)
 
