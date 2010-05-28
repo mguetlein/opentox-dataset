@@ -165,6 +165,7 @@ end
 
 delete '/?' do
   
+=begin
 	Dataset.all.each do |d|
 		begin
 			File.delete d.file 
@@ -173,6 +174,7 @@ delete '/?' do
 		end
 	 	#d.destroy!
 	end
+=end
   Dataset.auto_migrate!
 	response['Content-Type'] = 'text/plain'
 	"All datasets deleted."
