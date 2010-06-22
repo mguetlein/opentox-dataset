@@ -1,9 +1,6 @@
 require 'rubygems'
-gem 'opentox-ruby-api-wrapper', '= 1.4.4.4'
+gem "opentox-ruby-api-wrapper", "= 1.5.6"
 require 'opentox-ruby-api-wrapper'
-#require 'sinatra/respond_to'
-#Sinatra::Application.register Sinatra::RespondTo
-
 
 LOGGER.progname = File.expand_path(__FILE__)
 
@@ -19,9 +16,7 @@ class Dataset
 	def to_owl
 		data = YAML.load(yaml)
 		owl = OpenTox::Owl.create 'Dataset', uri
-		['title', 'creator'].each do |method|
-			owl.set(method, data.send(method))
-		end
+		owl.set "title", data.title
 		if data.data
 			data.data.each do |compound,features|
 				owl.add_data_entries compound,features
@@ -52,6 +47,9 @@ get '/:id' do
 	when /.rdf$/
 		params[:id].sub!(/.rdf$/,'')
 		accept =  'application/rdf+xml'
+	when /.xls$/
+		params[:id].sub!(/.xls$/,'')
+		accept =  'application/vnd.ms-excel'	
 	end
 	begin
 		dataset = Dataset.get(params[:id])
@@ -60,6 +58,7 @@ get '/:id' do
 		raise e.message + e.backtrace
 		halt 404, "Dataset #{params[:id]} not found."
 	end
+	halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
 	case accept
 	when /rdf/ # redland sends text/rdf instead of application/rdf+xml
 		response['Content-Type'] = 'application/rdf+xml'
@@ -71,7 +70,32 @@ get '/:id' do
 	when /yaml/
 		response['Content-Type'] = 'text/x-yaml'
 		dataset.yaml
-	else
+  when /ms-excel/
+    require 'spreadsheet'
+    response['Content-Type'] = 'application/vnd.ms-excel'
+    Spreadsheet.client_encoding = 'UTF-8'
+    book = Spreadsheet::Workbook.new
+    tmp = Tempfile.new('opentox-feature-xls')
+    sheet = book.create_worksheet  :name => 'Training Data'
+    sheet.column(0).width = 100
+    i = 0
+    YAML.load(dataset.yaml).data.each do |line|
+      begin
+        smilestring = RestClient.get(line[0], :accept => 'chemical/x-daylight-smiles').to_s
+        line[1][0] ? val = line[1][0].first[1] ? "1" : "0" : val = "" 
+        sheet.update_row(i, smilestring , val)
+        i+=1 
+      rescue
+      end
+    end
+    begin    
+      book.write tmp.path
+      return tmp
+    rescue
+      
+    end
+    tmp.close!
+  else
 		halt 400, "Unsupported MIME type '#{accept}'"
 	end
 end
@@ -132,6 +156,7 @@ end
 
 delete '/?' do
   
+=begin
 	Dataset.all.each do |d|
 		begin
 			File.delete d.file 
@@ -140,6 +165,7 @@ delete '/?' do
 		end
 	 	#d.destroy!
 	end
+=end
   Dataset.auto_migrate!
 	response['Content-Type'] = 'text/plain'
 	"All datasets deleted."
