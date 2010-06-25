@@ -43,7 +43,7 @@ get '/:id' do
 	case params[:id]
 	when /.yaml$/
 		params[:id].sub!(/.yaml$/,'')
-		accept =  'text/x-yaml'
+		accept =  'application/x-yaml'
 	when /.rdf$/
 		params[:id].sub!(/.rdf$/,'')
 		accept =  'application/rdf+xml'
@@ -68,7 +68,7 @@ get '/:id' do
 		end
 		dataset.owl
 	when /yaml/
-		response['Content-Type'] = 'text/x-yaml'
+		response['Content-Type'] = 'application/x-yaml'
 		dataset.yaml
   when /ms-excel/
     require 'spreadsheet'
