@@ -82,8 +82,12 @@ get '/:id' do
     YAML.load(dataset.yaml).data.each do |line|
       begin
         smilestring = RestClient.get(line[0], :accept => 'chemical/x-daylight-smiles').to_s
-        line[1][0] ? val = line[1][0].first[1] ? "1" : "0" : val = "" 
-        sheet.update_row(i, smilestring , val)
+				if line[1]
+					val = line[1][0].first[1]
+					LOGGER.debug val
+					#line[1][0] ? val = line[1][0].first[1] #? "1" : "0" : val = "" 
+					sheet.update_row(i, smilestring , val)
+				end
         i+=1 
       rescue
       end
