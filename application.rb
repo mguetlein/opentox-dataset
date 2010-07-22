@@ -2,8 +2,6 @@ require 'rubygems'
 gem "opentox-ruby-api-wrapper", "= 1.6.0"
 require 'opentox-ruby-api-wrapper'
 
-LOGGER.progname = File.expand_path(__FILE__)
-
 class Dataset
 	include DataMapper::Resource
 	property :id, Serial
