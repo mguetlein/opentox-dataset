@@ -15,12 +15,13 @@ class Dataset
 		data = YAML.load(yaml)
 		owl = OpenTox::Owl.create 'Dataset', uri
 		owl.set "title", data.title
-		if data.data
-			data.data.each do |compound,features|
-				owl.add_data_entries compound,features
-			end
-	  end
-		owl.rdf
+    owl.set "creator", data.creator
+    if data.compounds
+      data.compounds.each do |compound|
+        owl.add_data_entries compound,data.data[compound]  
+       end
+    end
+    owl.rdf
 	end
 
 end
