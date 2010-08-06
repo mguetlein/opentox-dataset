@@ -125,10 +125,10 @@ post '/?' do
 		case request.content_type
 		when /yaml/
 			dataset.yaml =	request.env["rack.input"].read
-		when /csv/
-			dataset.yaml =	csv2yaml request.env["rack.input"].read
-		when "application/rdf+xml"
-			dataset.yaml =	owl2yaml request.env["rack.input"].read
+		#when /csv/
+			#dataset.yaml =	csv2yaml request.env["rack.input"].read
+		#when "application/rdf+xml"
+			#dataset.yaml =	owl2yaml request.env["rack.input"].read
 		else
 			halt 404, "MIME type \"#{request.content_type}\" not supported."
 		end
@@ -158,17 +158,6 @@ delete '/:id/?' do
 end
 
 delete '/?' do
-  
-=begin
-	Dataset.all.each do |d|
-		begin
-			File.delete d.file 
-		rescue
-			LOGGER.error "Cannot delete dataset file '#{d.file}'"
-		end
-	 	#d.destroy!
-	end
-=end
   Dataset.auto_migrate!
 	response['Content-Type'] = 'text/plain'
 	"All datasets deleted."
