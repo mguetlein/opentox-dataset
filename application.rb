@@ -131,7 +131,7 @@ post '/?' do
     when /csv/
       dataset.yaml =  csv2yaml request.env["rack.input"].read
     when "application/rdf+xml"
-      dataset.yaml = YAML.load(OpenTox::Dataset.owl_to_yaml(request.env["rack.input"].read,dataset.uri))
+      dataset.yaml = OpenTox::Dataset.owl_to_yaml(request.env["rack.input"].read,dataset.uri)
     else
       halt 404, "MIME type \"#{request.content_type}\" not supported."
     end
