@@ -6,7 +6,6 @@ class Dataset
   include DataMapper::Resource
   property :id, Serial
   property :uri, String, :length => 255
-  #property :file, String, :length => 255
   property :yaml, Text, :length => 2**32-1 
   property :owl, Text, :length => 2**32-1 
   property :created_at, DateTime
@@ -58,7 +57,7 @@ get '/:id' do
     raise e.message + e.backtrace
     halt 404, "Dataset #{params[:id]} not found."
   end
-  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
+  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpu
   case accept
   when /rdf/ # redland sends text/rdf instead of application/rdf+xml
     response['Content-Type'] = 'application/rdf+xml'
@@ -126,16 +125,12 @@ post '/?' do
     case request.content_type
     when /yaml/
       dataset.yaml =  request.env["rack.input"].read
-#    when /csv/
-#      dataset.yaml =  csv2yaml request.env["rack.input"].read
     when "application/rdf+xml"
       dataset.yaml = OpenTox::Dataset.owl_to_yaml(request.env["rack.input"].read,dataset.uri)
     else
       halt 404, "MIME type \"#{request.content_type}\" not supported."
     end
     begin
-      #dataset.owl = d.rdf
-      #dataset.uri = uri 
       raise "saving failed: "+dataset.errors.inspect unless dataset.save
     rescue => e
       LOGGER.error e.message
