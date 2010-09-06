@@ -35,7 +35,11 @@ get '/?' do
   Dataset.all(params).collect{|d| d.uri}.join("\n") + "\n"
 end
 
-get '/:id' do
+# provides dataset in various formats
+#
+# only_metadata=true => compounds and features are removed
+#
+def get_dataset( params, request, response, only_metadata=false )
   accept = request.env['HTTP_ACCEPT']
   accept = 'application/rdf+xml' if accept == '*/*' or accept == '' or accept.nil?
   # workaround for browser links
@@ -57,15 +61,28 @@ get '/:id' do
     raise e.message + e.backtrace
     halt 404, "Dataset #{params[:id]} not found."
   end
-  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpu
+  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
+  
+  if only_metadata # remove compounds and feature data from yaml
+    d = YAML.load(dataset.yaml)
+    def d.to_yaml_properties
+      super - [ "@compounds", "@features", "@data"]
+    end
+    dataset.yaml = d.to_yaml
+  end
+  
   case accept
   when /rdf/ # redland sends text/rdf instead of application/rdf+xml
     response['Content-Type'] = 'application/rdf+xml'
-    unless dataset.owl # lazy owl creation
-      dataset.owl = dataset.to_owl
-      dataset.save
+    if only_metadata
+      dataset.to_owl
+    else
+      unless dataset.owl # lazy owl creation
+        dataset.owl = dataset.to_owl
+        dataset.save
+      end
+      dataset.owl
     end
-    dataset.owl
   when /yaml/
     response['Content-Type'] = 'application/x-yaml'
     dataset.yaml
@@ -101,6 +118,14 @@ get '/:id' do
   else
     halt 400, "Unsupported MIME type '#{accept}'"
   end
+end
+
+get '/:id' do
+  get_dataset(params, request, response)
+end
+
+get '/:id/metadata/?' do
+  get_dataset(params, request, response, true)
 end
 
 get '/:id/features/:feature_id/?' do
