@@ -13,15 +13,18 @@ class Dataset
   def to_owl
    
     data = YAML.load(yaml)
+#    nt = "<#{uri}> <title> <#{data.title}> .\n"
+#    nt += "<#{uri}> <creator> <#{data.creator}> .\n"
     owl = OpenTox::Owl.create 'Dataset', uri
     owl.set "title", data.title
-    owl.set "creator", data.creator
+    owl.set "creator", data.creator if data.creator
     if data.compounds
       data.compounds.each do |compound|
         owl.add_data_entries compound,data.data[compound]  
        end
     end
     owl.rdf
+#    nt
   end
 
 end
@@ -77,11 +80,12 @@ def get_dataset( params, request, response, only_metadata=false )
     if only_metadata
       dataset.to_owl
     else
-      unless dataset.owl # lazy owl creation
-        dataset.owl = dataset.to_owl
-        dataset.save
-      end
-      dataset.owl
+      #unless dataset.owl # lazy owl creation
+        #dataset.owl = dataset.to_owl
+        #dataset.save
+      #end
+      #dataset.owl
+      dataset.to_owl
     end
   when /yaml/
     response['Content-Type'] = 'application/x-yaml'
