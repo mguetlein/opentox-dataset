@@ -13,18 +13,18 @@ class Dataset
   def to_owl
    
     data = YAML.load(yaml)
-#    nt = "<#{uri}> <title> <#{data.title}> .\n"
-#    nt += "<#{uri}> <creator> <#{data.creator}> .\n"
-    owl = OpenTox::Owl.create 'Dataset', uri
-    owl.set "title", data.title
-    owl.set "creator", data.creator if data.creator
-    if data.compounds
-      data.compounds.each do |compound|
-        owl.add_data_entries compound,data.data[compound]  
-       end
-    end
-    owl.rdf
-#    nt
+    beginning = Time.now
+    owl = OpenTox::OwlSerializer.create 'Dataset', uri
+    owl.annotate "title", data.title
+    owl.annotate "creator", data.creator if data.creator
+#    if data.compounds
+#      data.compounds.each do |compound|
+#        owl.add_data_entries compound,data.data[compound]  
+#       end
+#    end
+    nt = owl.rdf
+    LOGGER.debug "OWL creation took #{Time.now - beginning} seconds"
+    nt
   end
 
 end
