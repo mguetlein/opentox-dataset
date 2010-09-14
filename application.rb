@@ -173,6 +173,7 @@ post '/?' do
 end
 
 delete '/:id/?' do
+  halt 400,"delete temporarily disabled"
   begin
     dataset = Dataset.get(params[:id])
     dataset.destroy!
@@ -184,6 +185,7 @@ delete '/:id/?' do
 end
 
 delete '/?' do
+  halt 400,"delete temporarily disabled"
   Dataset.auto_migrate!
   response['Content-Type'] = 'text/plain'
   "All datasets deleted."
