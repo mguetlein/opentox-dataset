@@ -15,13 +15,19 @@ class Dataset
     data = YAML.load(yaml)
     beginning = Time.now
     owl = OpenTox::OwlSerializer.create 'Dataset', uri
-    owl.annotate "title", data.title
-    owl.annotate "creator", data.creator if data.creator
-#    if data.compounds
-#      data.compounds.each do |compound|
-#        owl.add_data_entries compound,data.data[compound]  
-#       end
-#    end
+    owl.annotation_property uri, DC.title, data.title, XSD.string
+    owl.annotation_property uri, DC.creator, data.creator, XSD.string if data.creator
+    if data.compounds
+      data.compounds.each do |compound|
+      owl.object_property uri, OT.compound, compound, XSD.anyUri
+       end
+    end
+    if data.features
+      data.features.each do |feature|
+      owl.object_property uri, OT.feature, feature, XSD.anyUri
+       end
+    end
+    #TODO: add data entries
     nt = owl.rdf
     LOGGER.debug "OWL creation took #{Time.now - beginning} seconds"
     nt
@@ -64,7 +70,7 @@ def get_dataset( params, request, response, only_metadata=false )
     raise e.message + e.backtrace
     halt 404, "Dataset #{params[:id]} not found."
   end
-  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty cataset can be returned, but if this happens stale processes keep runing at 100% cpo
+  halt 404, "Dataset #{params[:id]} not found." if dataset.nil? # not sure how an empty dataset can be returned, but if this happens stale processes keep runing at 100% cpu
   
   if only_metadata # remove compounds and feature data from yaml
     d = YAML.load(dataset.yaml)
