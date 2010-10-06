@@ -1,5 +1,5 @@
 require 'rubygems'
-gem "opentox-ruby-api-wrapper", "= 1.6.2"
+gem "opentox-ruby-api-wrapper", "= 1.6.2.1"
 require 'opentox-ruby-api-wrapper'
 
 class Dataset
@@ -116,6 +116,9 @@ def get_dataset( params, request, response, only_metadata=false )
       
     end
     tmp.close!
+  when /text\/html/
+    response['Content-Type'] = 'text/html'
+    OpenTox.text_to_html dataset.yaml
   else
     halt 400, "Unsupported MIME type '#{accept}'"
   end
