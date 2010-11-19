@@ -1,7 +1,7 @@
 require 'rubygems'
 gem "opentox-ruby-api-wrapper", "= 1.6.6"
 require 'opentox-ruby-api-wrapper'
-require 'parser'
+#require 'parser'
 
 class Dataset
 
@@ -77,15 +77,16 @@ class Dataset
     update(:yaml => dataset.to_yaml)
   end
 
+=begin
   def create_representations
     dataset = YAML.load yaml
     ["rdfxml","xls"].each do |extension|
       file = "public/#{@id}.#{extension}"
-      LOGGER.debug file
       FileUtils.rm Dir["public/#{file}"] if File.exists? file
       File.open(file,"w+") { |f| f.puts eval("dataset.to_#{extension}") }
     end
   end
+=end
 
 end
 
@@ -127,20 +128,15 @@ get '/:id' do
     end
   end
 
-  #begin
-    dataset = OpenTox::Dataset.new
-    dataset.load_yaml(Dataset.get(params[:id]).yaml)
-    halt 404, "Dataset #{params[:id]} empty." if dataset.nil? # not sure how an empty dataset can be returned, but if this happens stale processes keep runing at 100% cpu
-  #rescue => e
-    #LOGGER.error e.message
-    #LOGGER.info e.backtrace
-    #halt 404, "Dataset #{params[:id]} not found."
-  #end
+  dataset = OpenTox::Dataset.new
+  dataset.load_yaml(Dataset.get(params[:id]).yaml)
+  halt 404, "Dataset #{params[:id]} empty." if dataset.nil? # not sure how an empty dataset can be returned, but if this happens stale processes keep runing at 100% cpu
   
   case @accept
 
   when /rdf/ # redland sends text/rdf instead of application/rdf+xml
     file = "public/#{params[:id]}.rdfxml"
+    File.open(file,"w+") { |f| f.puts dataset.to_rdfxml } unless File.exists? file # lazy rdfxml generation
     response['Content-Type'] = 'application/rdf+xml'
     File.open(file).read
 
@@ -154,6 +150,7 @@ get '/:id' do
 
   when /ms-excel/
     file = "public/#{params[:id]}.xls"
+    dataset.to_xls.write(file) unless File.exists? file # lazy xls generation
     response['Content-Type'] = 'application/ms-excel'
     File.open(file).read
 
@@ -235,6 +232,11 @@ get '/:id/compounds' do
   YAML.load(Dataset.get(params[:id]).yaml).compounds.join("\n") + "\n"
 end
 
+post '/test' do
+  #request.env.to_yaml
+  @accept
+end
+
 # Create a new dataset.
 #
 # Posting without parameters creates and saves an empty dataset (with assigned URI).
@@ -255,15 +257,15 @@ post '/?' do
   if params.empty? and request.env["rack.input"].read.empty?
     ot_dataset = OpenTox::Dataset.new(@dataset.uri)
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
-    @dataset.create_representations
+    #@dataset.create_representations
     @dataset.uri
   else
-    task_uri = OpenTox::Task.as_task("Converting and saving dataset ", @dataset.uri) do 
+    #task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
       @dataset.load params, request 
-      @dataset.create_representations
+      #@dataset.create_representations
       @dataset.uri
-    end
-    halt 202,task_uri.to_s+"\n"
+    #end
+    #halt 202,task.uri+"\n"
   end
 end
 
@@ -282,12 +284,13 @@ post '/:id' do
   @dataset = Dataset.get(params[:id])
   halt 404, "Dataset #{params[:id]} not found." unless @dataset
   response['Content-Type'] = 'text/uri-list'
-  task_uri = OpenTox::Task.as_task("Converting and saving dataset ", @dataset.uri) do 
+  #task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
     @dataset.load params, request 
-    @dataset.create_representations
+    FileUtils.rm Dir["public/#{params[:id]}.*"]
+    #@dataset.create_representations
     @dataset.uri
-  end
-  halt 202,task_uri.to_s+"\n"
+  #end
+  #halt 202,task.uri.to_s+"\n"
 end
 
 # Delete a dataset
