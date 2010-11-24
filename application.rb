@@ -1,7 +1,6 @@
 require 'rubygems'
 gem "opentox-ruby-api-wrapper", "= 1.6.6"
 require 'opentox-ruby-api-wrapper'
-#require 'parser'
 
 class Dataset
 
@@ -232,11 +231,6 @@ get '/:id/compounds' do
   YAML.load(Dataset.get(params[:id]).yaml).compounds.join("\n") + "\n"
 end
 
-post '/test' do
-  #request.env.to_yaml
-  @accept
-end
-
 # Create a new dataset.
 #
 # Posting without parameters creates and saves an empty dataset (with assigned URI).
@@ -249,23 +243,21 @@ end
 # @param [Header] Content-type one of `application/x-yaml, application/rdf+xml, multipart/form-data/`
 # @param [BODY] - string with data in selected Content-type
 # @param [optional] file, for file uploads, Content-type should be multipart/form-data, please specify the file type `application/rdf+xml, application-x-yaml, text/csv, application/ms-excel` 
-# @return [text/uri-list] Task ID or dataset ID (empty datasets without params)
+# @return [text/uri-list] Task URI or Dataset URI (empty datasets)
 post '/?' do 
   @dataset = Dataset.create
   response['Content-Type'] = 'text/uri-list'
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
   if params.empty? and request.env["rack.input"].read.empty?
-    ot_dataset = OpenTox::Dataset.new(@dataset.uri)
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
-    #@dataset.create_representations
     @dataset.uri
   else
-    #task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
+    task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
       @dataset.load params, request 
-      #@dataset.create_representations
       @dataset.uri
-    #end
-    #halt 202,task.uri+"\n"
+    end
+    halt 503,task.uri+"\n" if task.status == "Cancelled"
+    halt 202,task.uri+"\n"
   end
 end
 
@@ -284,13 +276,13 @@ post '/:id' do
   @dataset = Dataset.get(params[:id])
   halt 404, "Dataset #{params[:id]} not found." unless @dataset
   response['Content-Type'] = 'text/uri-list'
-  #task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
+  task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
     @dataset.load params, request 
     FileUtils.rm Dir["public/#{params[:id]}.*"]
-    #@dataset.create_representations
     @dataset.uri
-  #end
-  #halt 202,task.uri.to_s+"\n"
+  end
+  halt 503,task.uri+"\n" if task.status == "Cancelled"
+  halt 202,task.uri.to_s+"\n"
 end
 
 # Delete a dataset
