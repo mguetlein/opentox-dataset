@@ -1,4 +1,4 @@
 require 'rubygems'
-require 'opentox-ruby-api-wrapper'
+require 'opentox-ruby'
 require 'config/config_ru'
 run Sinatra::Application

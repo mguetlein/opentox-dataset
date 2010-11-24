@@ -4,7 +4,7 @@ OpenTox Dataset
 * An OpenTox REST Webservice
 * Stores associations between compounds and features in datasets
 * Implements a subset of the OpenTox compound API 1.1 (http://opentox.org/dev/apis/api-1.1/dataset)
-* Supports the internal YAML representation of opentox-ruby-api-wrapper
+* Supports the internal YAML representation of opentox-ruby
 
 REST operations:
 
