@@ -19,7 +19,7 @@ class Dataset
     content_type = request.content_type
     content_type = "application/rdf+xml" if content_type.nil?
     dataset = OpenTox::Dataset.new
-
+    
     case content_type
 
     when /yaml/
@@ -28,7 +28,7 @@ class Dataset
     when "application/rdf+xml"
       dataset.load_rdfxml(data)
 
-    when /multipart\/form-data/ # file uploads
+    when /multipart\/form-data/ , "application/x-www-form-urlencoded" # file uploads
 
       case params[:file][:type]
 
@@ -71,7 +71,7 @@ class Dataset
       end
 
     else
-      raise "MIME type \"#{@content_type}\" not supported."
+      raise "MIME type \"#{content_type}\" not supported."
     end
 
     dataset.uri = @uri # update uri (also in metdata)
@@ -254,11 +254,12 @@ end
 # @return [text/uri-list] Task URI or Dataset URI (empty datasets)
 post '/?' do 
   @dataset = Dataset.create
-  @dataset.token_id = params[:token_id] if params[:token_id]
-  @dataset.token_id = request.env['HTTP_TOKEN_ID'] if !dataset.token_id and request.env['HTTP_TOKEN_ID'] 
   response['Content-Type'] = 'text/uri-list'
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
-  if params.empty? and request.env["rack.input"].read.empty?
+  @dataset.update(:token_id => params[:token_id]) if params[:token_id]
+  @dataset.update(:token_id => request.env['HTTP_TOKEN_ID']) if !@dataset.token_id and request.env['HTTP_TOKEN_ID']
+
+  if params.size < 2 # and request.env["rack.input"].read.empty?  # mr to fix
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
     @dataset.uri
   else
@@ -300,6 +301,7 @@ end
 delete '/:id' do
   begin
     dataset = Dataset.get(params[:id])
+    uri = dataset.uri
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     dataset.destroy!
     if params[:token_id] and !Dataset.get(params[:id]) and uri
