@@ -10,8 +10,8 @@ class Dataset
   property :yaml, Text, :length => 2**32-1 
   property :created_at, DateTime
 
-  attr_accessor :token_id
-  @token_id = nil
+  attr_accessor :subjectid
+  @subjectid = nil
   
   after :save, :check_policy
 
@@ -94,7 +94,7 @@ class Dataset
 
   private
   def check_policy
-    OpenTox::Authorization.check_policy(uri, token_id)
+    OpenTox::Authorization.check_policy(uri, subjectid)
   end
 
 end
@@ -257,12 +257,12 @@ end
 post '/?' do 
   @dataset = Dataset.create
   response['Content-Type'] = 'text/uri-list'
-  @dataset.token_id = params[:token_id] if params[:token_id]
-  @dataset.token_id = request.env['HTTP_TOKEN_ID'] if !@dataset.token_id and request.env['HTTP_TOKEN_ID']
-
+  @dataset.subjectid = params[:subjectid] if params[:subjectid]
+  @dataset.subjectid = request.env['HTTP_SUBJECTID'] if !@dataset.subjectid and request.env['HTTP_SUBJECTID']
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
 
-  if params.size < 2 # and request.env["rack.input"].read.empty?  # mr to fix
+  token_present = params.member?("subjectid") ? 1 : 0
+  if params.size - token_present < 1 # and request.env["rack.input"].read.empty?  # mr to fix
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
     @dataset.uri
   else
@@ -307,9 +307,9 @@ delete '/:id' do
     uri = dataset.uri
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     dataset.destroy!
-    if params[:token_id] and !Dataset.get(params[:id]) and uri
+    if params[:subjectid] and !Dataset.get(params[:id]) and uri
       begin
-        aa = OpenTox::Authorization.delete_policies_from_uri(uri, params[:token_id])
+        aa = OpenTox::Authorization.delete_policies_from_uri(uri, params[:subjectid])
         LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{aa}"
       rescue
         LOGGER.warn "Policy delete error for Dataset URI: #{uri}"
