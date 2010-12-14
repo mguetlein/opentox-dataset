@@ -8,11 +8,13 @@ class Dataset
   property :id, Serial
   property :uri, String, :length => 255
   property :yaml, Text, :length => 2**32-1 
-  property :token_id, String, :length => 255
   property :created_at, DateTime
 
-  after :save, :check_policy
+  attr_accessor :token_id
+  @token_id = nil
   
+  after :save, :check_policy
+
   def load(params,request)
 
     data = request.env["rack.input"].read
@@ -255,9 +257,10 @@ end
 post '/?' do 
   @dataset = Dataset.create
   response['Content-Type'] = 'text/uri-list'
+  @dataset.token_id = params[:token_id] if params[:token_id]
+  @dataset.token_id = request.env['HTTP_TOKEN_ID'] if !@dataset.token_id and request.env['HTTP_TOKEN_ID']
+
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
-  @dataset.update(:token_id => params[:token_id]) if params[:token_id]
-  @dataset.update(:token_id => request.env['HTTP_TOKEN_ID']) if !@dataset.token_id and request.env['HTTP_TOKEN_ID']
 
   if params.size < 2 # and request.env["rack.input"].read.empty?  # mr to fix
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
