@@ -307,10 +307,12 @@ delete '/:id' do
     uri = dataset.uri
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     dataset.destroy!
-    if params[:subjectid] and !Dataset.get(params[:id]) and uri
+    subjectid = params[:subjectid] if params[:subjectid]
+    subjectid = request.env['HTTP_SUBJECTID'] if !subjectid and request.env['HTTP_SUBJECTID']		
+    if subjectid and !Dataset.get(params[:id]) and uri
       begin
-        aa = OpenTox::Authorization.delete_policies_from_uri(uri, params[:subjectid])
-        LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{aa}"
+        res = OpenTox::Authorization.delete_policies_from_uri(uri, subjectid)
+        LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{res}"
       rescue
         LOGGER.warn "Policy delete error for Dataset URI: #{uri}"
       end
