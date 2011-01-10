@@ -112,6 +112,7 @@ end
 # @return [text/uri-list] List of available datasets
 get '/?' do
   response['Content-Type'] = 'text/uri-list'
+  params.delete_if{|k,v| k=="subjectid"}
   Dataset.all(params).collect{|d| d.uri}.join("\n") + "\n"
 end
 
@@ -137,7 +138,7 @@ get '/:id' do
     end
   end
 
-  dataset = OpenTox::Dataset.new
+  dataset = OpenTox::Dataset.new(nil, params[:subjectid])
   dataset.load_yaml(Dataset.get(params[:id]).yaml)
   halt 404, "Dataset #{params[:id]} empty." if dataset.nil? # not sure how an empty dataset can be returned, but if this happens stale processes keep runing at 100% cpu
   
@@ -307,10 +308,12 @@ delete '/:id' do
     uri = dataset.uri
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     dataset.destroy!
-    if params[:subjectid] and !Dataset.get(params[:id]) and uri
+    subjectid = params[:subjectid] ? params[:subjectid] : nil
+    subjectid = request.env['HTTP_SUBJECTID'] if !subjectid and request.env['HTTP_SUBJECTID']		
+    if subjectid and !Dataset.get(params[:id]) and uri
       begin
-        aa = OpenTox::Authorization.delete_policies_from_uri(uri, params[:subjectid])
-        LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{aa}"
+        res = OpenTox::Authorization.delete_policies_from_uri(uri, subjectid)
+        LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{res}"
       rescue
         LOGGER.warn "Policy delete error for Dataset URI: #{uri}"
       end
