@@ -16,7 +16,7 @@ class Dataset
   after :save, :check_policy
 
   def load(params,request)
-
+    
     data = request.env["rack.input"].read
     content_type = request.content_type
     content_type = "application/rdf+xml" if content_type.nil?
@@ -124,6 +124,8 @@ get '/:id' do
   unless extension.empty?
     params[:id].sub!(/\.#{extension}$/,'')
     case extension
+    when "html"
+      @accept = 'text/html'
     when "yaml"
       @accept = 'application/x-yaml'
     when "csv"
@@ -152,7 +154,11 @@ get '/:id' do
   when /yaml/
     response['Content-Type'] = 'application/x-yaml'
     dataset.to_yaml
- 
+
+   when /html/
+    response['Content-Type'] = 'text/html'
+    OpenTox.text_to_html dataset.to_yaml
+
   when "text/csv"
     response['Content-Type'] = 'text/csv'
     dataset.to_csv
@@ -255,6 +261,7 @@ end
 # @param [optional] file, for file uploads, Content-type should be multipart/form-data, please specify the file type `application/rdf+xml, application-x-yaml, text/csv, application/ms-excel` 
 # @return [text/uri-list] Task URI or Dataset URI (empty datasets)
 post '/?' do 
+  
   @dataset = Dataset.create
   response['Content-Type'] = 'text/uri-list'
   @dataset.subjectid = params[:subjectid] if params[:subjectid]
