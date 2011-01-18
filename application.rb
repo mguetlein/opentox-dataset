@@ -20,7 +20,7 @@ class Dataset
     data = request.env["rack.input"].read
     content_type = request.content_type
     content_type = "application/rdf+xml" if content_type.nil?
-    dataset = OpenTox::Dataset.new
+    dataset = OpenTox::Dataset.new(nil, params[:subjectid]) 
     
     case content_type
 
@@ -138,7 +138,7 @@ get '/:id' do
     end
   end
 
-  dataset = OpenTox::Dataset.new(nil, params[:subjectid])
+  dataset = OpenTox::Dataset.new(nil, @subjectid)
   dataset.load_yaml(Dataset.get(params[:id]).yaml)
   halt 404, "Dataset #{params[:id]} empty." if dataset.nil? # not sure how an empty dataset can be returned, but if this happens stale processes keep runing at 100% cpu
   
@@ -258,8 +258,7 @@ end
 post '/?' do 
   @dataset = Dataset.create
   response['Content-Type'] = 'text/uri-list'
-  @dataset.subjectid = params[:subjectid] if params[:subjectid]
-  @dataset.subjectid = request.env['HTTP_SUBJECTID'] if !@dataset.subjectid and request.env['HTTP_SUBJECTID']
+  @dataset.subjectid = @subjectid
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
 
   token_present = params.member?("subjectid") ? 1 : 0
@@ -308,11 +307,9 @@ delete '/:id' do
     uri = dataset.uri
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     dataset.destroy!
-    subjectid = params[:subjectid] ? params[:subjectid] : nil
-    subjectid = request.env['HTTP_SUBJECTID'] if !subjectid and request.env['HTTP_SUBJECTID']		
-    if subjectid and !Dataset.get(params[:id]) and uri
+    if @subjectid and !Dataset.get(params[:id]) and uri
       begin
-        res = OpenTox::Authorization.delete_policies_from_uri(uri, subjectid)
+        res = OpenTox::Authorization.delete_policies_from_uri(uri, @subjectid)
         LOGGER.debug "Policy deleted for Dataset URI: #{uri} with result: #{res}"
       rescue
         LOGGER.warn "Policy delete error for Dataset URI: #{uri}"
