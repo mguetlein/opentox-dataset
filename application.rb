@@ -11,7 +11,6 @@ class Dataset
   property :created_at, DateTime
 
   attr_accessor :subjectid
-  @subjectid = nil
   
   after :save, :check_policy
 
@@ -94,7 +93,7 @@ class Dataset
 
   private
   def check_policy
-    OpenTox::Authorization.check_policy(uri, subjectid)
+    OpenTox::Authorization.check_policy(uri, subjectid) if id
   end
 
 end
@@ -201,7 +200,7 @@ get %r{/(\d+)/feature/(.*)$} do |id,feature|
 
   #feature_uri = url_for("/#{params[:id]}/feature/#{URI.encode(params[:feature_name])}",:full) # work around  racks internal uri decoding 
   #dataset = YAML.load(Dataset.get(params[:id]).yaml)
-  feature_uri = url_for("/#{id}/feature/#{URI.encode(feature)}",:full) # work around  racks internal uri decoding 
+  feature_uri = url_for("/#{id}/feature/#{URI.encode(feature)}",:full) # work around  racks internal uri decoding
   dataset = YAML.load(Dataset.get(id).yaml)
   metadata = dataset.features[feature_uri]
   
@@ -309,6 +308,7 @@ end
 # Delete a dataset
 # @return [text/plain] Status message
 delete '/:id' do
+  LOGGER.debug "deleting dataset with id "+params[:id].to_s
   begin
     dataset = Dataset.get(params[:id])
     uri = dataset.uri
