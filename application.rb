@@ -14,20 +14,22 @@ class Dataset
   
   after :save, :check_policy
 
-  def load(params,request)
+  # subjectid ist stored as memeber variable, not in params
+  def load(params,content_type,input_data)
     
-    data = request.env["rack.input"].read
-    content_type = request.content_type
+    raise "store subject-id in dataset-object, not in params" if 
+      params.has_key?(:subjectid) and @subjectid==nil
+    
     content_type = "application/rdf+xml" if content_type.nil?
-    dataset = OpenTox::Dataset.new(nil, params[:subjectid]) 
+    dataset = OpenTox::Dataset.new(nil, @subjectid) 
     
     case content_type
 
     when /yaml/
-      dataset.load_yaml(data)
+      dataset.load_yaml(input_data)
 
-    when "application/rdf+xml"
-      dataset.load_rdfxml(data)
+    when /application\/rdf\+xml/
+      dataset.load_rdfxml(input_data)
 
     when /multipart\/form-data/ , "application/x-www-form-urlencoded" # file uploads
 
@@ -266,14 +268,17 @@ post '/?' do
   response['Content-Type'] = 'text/uri-list'
   @dataset.subjectid = @subjectid
   @dataset.update(:uri => url_for("/#{@dataset.id}", :full))
-
-  token_present = params.member?("subjectid") ? 1 : 0
-  if params.size - token_present < 1 # and request.env["rack.input"].read.empty?  # mr to fix
+  
+  # it could be that the read function works only once!, store in varible
+  input_data = request.env["rack.input"].read
+  # make sure subjectid is not included in params, subjectid is set as member variable
+  params.delete(:subjectid) 
+  if params.size == 0 and input_data.size==0
     @dataset.update(:yaml => OpenTox::Dataset.new(@dataset.uri).to_yaml)
     @dataset.uri
   else
     task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
-      @dataset.load params, request 
+      @dataset.load params, request.content_type, input_data 
       @dataset.uri
     end
     halt 503,task.uri+"\n" if task.status == "Cancelled"
@@ -294,10 +299,11 @@ end
 # @return [text/uri-list] Task ID 
 post '/:id' do 
   @dataset = Dataset.get(params[:id])
+  @dataset.subjectid = @subjectid
   halt 404, "Dataset #{params[:id]} not found." unless @dataset
   response['Content-Type'] = 'text/uri-list'
   task = OpenTox::Task.create("Converting and saving dataset ", @dataset.uri) do 
-    @dataset.load params, request 
+    @dataset.load params, request.content_type, request.env["rack.input"].read 
     FileUtils.rm Dir["public/#{params[:id]}.*"]
     @dataset.uri
   end
