@@ -112,9 +112,16 @@ end
 # Get a list of available datasets
 # @return [text/uri-list] List of available datasets
 get '/?' do
-  response['Content-Type'] = 'text/uri-list'
   params.delete_if{|k,v| k=="subjectid"}
-  Dataset.all(params).collect{|d| d.uri}.join("\n") + "\n"
+  datasets = Dataset.all(params).collect{|d| d.uri}.join("\n") + "\n"
+  case @accept
+    when /html/
+    response['Content-Type'] = 'text/html'
+    OpenTox.text_to_html datasets
+  else
+    response['Content-Type'] = 'text/uri-list'
+    datasets
+  end
 end
 
 # Get a dataset representation
@@ -236,7 +243,10 @@ get '/:id/features' do
   when /yaml/
     response['Content-Type'] = 'application/x-yaml'
     features.to_yaml
-  when "text/uri-list"
+  when /html/
+    response['Content-Type'] = 'text/html'
+    OpenTox.text_to_html YAML.load(Dataset.get(params[:id]).yaml).features.keys.join("\n") + "\n"
+  else "text/uri-list"
     response['Content-Type'] = 'text/uri-list'
     YAML.load(Dataset.get(params[:id]).yaml).features.keys.join("\n") + "\n"
   end
@@ -245,8 +255,15 @@ end
 # Get a list of all compounds
 # @return [text/uri-list] Feature list 
 get '/:id/compounds' do
-  response['Content-Type'] = 'text/uri-list'
-  YAML.load(Dataset.get(params[:id]).yaml).compounds.join("\n") + "\n"
+  compounds = YAML.load(Dataset.get(params[:id]).yaml).compounds.join("\n") + "\n"
+  case @accept
+    when /html/
+    response['Content-Type'] = 'text/html'
+    OpenTox.text_to_html compounds
+  else
+    response['Content-Type'] = 'text/uri-list'
+    compounds
+  end
 end
 
 # Create a new dataset.
